@@ -1,0 +1,196 @@
+{
+  "name": "node-debug",
+  "version": "0.10.1",
+  "publisher": "isidor",
+  "description": "Visual Studio Code debug adapter for node.js",
+  "author": {
+    "name": "Microsoft Corporation"
+  },
+  "private": true,
+  "engines": {
+    "node": ">= 0.12.0",
+    "vscode": "0.10.x"
+  },
+  "dependencies": {
+	  "source-map": "*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://monacotools.visualstudio.com/DefaultCollection/Monaco/_git/vscode-node-debug"
+  },
+  "devDependencies": {
+    "gulp": "^3.9.0",
+    "gulp-util": "^3.0.5",
+    "gulp-tsb": "git://github.com/jrieken/gulp-tsb.git#bbf53f1d4b503b9080f8c300208b3ffa829a12c7",
+    "gulp-azure-storage": "*",
+    "git-rev-sync": "*",
+    "del": "*",
+    "run-sequence": "*",
+    "gulp-vinyl-zip": "*"
+  },
+  "contributes": {
+		"debuggers": [
+			{
+				"type": "node",
+				"label": "Node.js",
+				"enableBreakpointsFor": { "languageIds": ["javascript"] },
+				"program": "./out/node/nodeDebug.js",
+				"runtime": "node",
+				"initialConfigurations": [
+					{
+						"name": "Launch",
+						"type": "node",
+						"request": "launch",
+						"program": "app.js",
+						"stopOnEntry": false,
+						"args": [],
+						"cwd": ".",
+						"runtimeExecutable": null,
+						"runtimeArgs": ["--nolazy"],
+						"env": {
+							"NODE_ENV": "development"
+						},
+						"externalConsole": false,
+						"sourceMaps": false,
+						"outDir": null
+					},
+					{
+						"name": "Attach",
+						"type": "node",
+						"request": "attach",
+						"port": 5858
+					}
+				],
+				"configurationAttributes": {
+					"launch": {
+						"required": ["program"],
+						"properties": {
+							"program": {
+								"type": "string",
+								"description": "Workspace relative path to the program."
+							},
+							"stopOnEntry": {
+								"type": "boolean",
+								"description": "Automatically stop program after launch.",
+								"default": true
+							},
+							"externalConsole": {
+								"type": "boolean",
+								"description": "Launch debug target in external console.",
+								"default": true
+							},
+							"args": {
+								"type": "array",
+								"description": "Command line arguments passed to the program.",
+								"items": { "type": "string" },
+								"default": []
+							},
+							"cwd": {
+								"type": "string",
+								"description": "Workspace relative or absolute path to the working directory of the program being debugged. Default is the current workspace.",
+								"default": "."
+							},
+							"runtimeExecutable": {
+								"type": ["string", "null"],
+								"description": "Workspace relative or absolute path to the runtime executable to be used. Default is the runtime executable on the PATH.",
+								"default": null
+							},
+							"runtimeArgs": {
+								"type": "array",
+								"description": "Optional arguments passed to the runtime executable.",
+								"items": { "type": "string" },
+								"default": []
+							},
+							"env": {
+								"type": "object",
+								"description": "Environment variables passed to the program.",
+								"default": {}
+							},
+							"sourceMaps": {
+								"type": "boolean",
+								"description": "Use JavaScript source maps (if they exist).",
+								"default": true
+							},
+							"outDir": {
+								"type": ["string", "null"],
+								"description": "If source maps are enabled, the generated code is expected in this directory. If not specified, the generated code is expected in the same directory as its source.",
+								"default": null
+							}
+						}
+					},
+					"attach": {
+						"required": ["port"],
+						"properties": {
+							"port": {
+								"type": "number",
+								"description": "Port to attach to.",
+								"default": "undefined"
+							},
+							"sourceMaps": {
+								"type": "boolean",
+								"description": "Use JavaScript source maps (if they exist).",
+								"default": true
+							},
+							"outDir": {
+								"type": ["string", "null"],
+								"description": "If source maps are enabled, the generated code is expected in this directory. If not specified, the generated code is expected in the same directory as its source.",
+								"default": null
+							}
+						}
+					}
+				}
+			},
+			{
+				"type": "extensionHost",
+				"label": "Extension Development",
+				"enableBreakpointsFor": { "languageIds": ["javascript"] },
+				"program": "./out/node/nodeDebug.js",
+				"runtime": "node",
+				"initialConfigurations": [{
+					"name": "Launch Extension",
+					"type": "extensionHost",
+					"request": "launch",
+					"runtimeExecutable": "${execPath}",
+					"args": [ "--extensionDevelopmentPath=${workspaceRoot}" ],
+					"stopOnEntry": false,
+					"sourceMaps": true,
+					"outDir": "out",
+					"preLaunchTask": "npm"
+				}],
+				"configurationAttributes": {
+					"launch": {
+						"required": ["runtimeExecutable", "args"],
+						"properties": {
+							"runtimeExecutable": {
+								"type": ["string", "null"],
+								"description": "Absolute path to VS Code.",
+								"default": "${execPath}"
+							},
+							"args": {
+								"type": "array",
+								"description": "Command line arguments passed to VS Code.",
+								"items": { "type": "string" },
+								"default": [ "--extensionDevelopmentPath=${workspaceRoot}" ]
+							},
+							"stopOnEntry": {
+								"type": "boolean",
+								"description": "Automatically stop the extension host after launch.",
+								"default": true
+							},
+							"sourceMaps": {
+								"type": "boolean",
+								"description": "Use JavaScript source maps.",
+								"default": true
+							},
+							"outDir": {
+								"type": ["string", "null"],
+								"description": "If source maps are enabled, the generated code is expected in this directory. If not specified, the generated code is expected in the same directory as its source.",
+								"default": "out"
+							}
+						}
+					}
+				}
+			}
+		]
+	}
+}

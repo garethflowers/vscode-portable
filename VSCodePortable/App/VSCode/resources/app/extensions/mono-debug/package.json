@@ -1,0 +1,114 @@
+{
+	"name": "mono-debug",
+	"version": "0.10.1",
+	"publisher": "isidor",
+	"description": "Visual Studio Code debug adapter for mono",
+	"author": {
+		"name": "Microsoft Corporation"
+	},
+	"license": "MIT",
+	"private": true,
+	"engines": {
+		"vscode": "0.10.x"
+	},
+	"dependencies": {
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://monacotools.visualstudio.com/DefaultCollection/Monaco/_git/vscode-mono-debug"
+	},
+	"devDependencies": {
+		"gulp": "^3.9.0",
+		"gulp-util": "^3.0.5",
+		"gulp-azure-storage": "*",
+		"git-rev-sync": "*",
+		"del": "*",
+		"run-sequence": "*",
+		"gulp-vinyl-zip": "*"
+	},
+	"contributes": {
+		"debuggers": [{
+			"type": "mono",
+			"label": "C# mono",
+			"enableBreakpointsFor": { "languageIds": ["csharp", "fsharp"] },
+			"program": "./bin/Release/mono-debug.exe",
+			"osx": {
+				"runtime": "mono"
+			},
+			"linux": {
+				"runtime": "mono"
+			},
+			"initialConfigurations": [
+				{
+					"name": "Launch",
+					"type": "mono",
+					"request": "launch",
+					"program": "program.exe",
+					"args": [],
+					"cwd": ".",
+					"runtimeExecutable": null,
+					"env": { }
+				},
+				{
+					"name": "Attach",
+					"type": "mono",
+					"request": "attach",
+					"address": "localhost",
+					"port": 5858
+				}
+			],
+			"configurationAttributes": {
+				"launch": {
+					"required": ["program"],
+					"properties": {
+						"program": {
+							"type": "string",
+							"description": "Workspace relative path to the program."
+						},
+						"args": {
+							"type": "array",
+							"description": "Command line arguments passed to the program.",
+							"items": { "type": "string" },
+							"default": []
+						},
+						"cwd": {
+							"type": "string",
+							"description": "Workspace relative or absolute path to the working directory of the program being debugged. Default is the current workspace.",
+							"default": "."
+						},
+						"runtimeExecutable": {
+							"type": ["string", "null"],
+							"description": "Workspace relative or absolute path to the runtime executable to be used. Default is the runtime executable on the PATH.",
+							"default": null
+						},
+						"runtimeArgs": {
+							"type": "array",
+							"description": "Optional arguments passed to the runtime executable.",
+							"items": { "type": "string" },
+							"default": []
+						},
+						"env": {
+							"type": "object",
+							"description": "Environment variables passed to the program.",
+							"default": {}
+						}
+					}
+				},
+				"attach": {
+					"properties": {
+						"port": {
+							"type": "number",
+							"description": "Port to attach to.",
+							"default": "undefined"
+						},
+						"address": {
+							"type": "string",
+							"description": "TCP/IP address. Default is \"localhost\".",
+							"default": "undefined"
+						}
+					}
+				}
+			}
+		}]
+	}
+}

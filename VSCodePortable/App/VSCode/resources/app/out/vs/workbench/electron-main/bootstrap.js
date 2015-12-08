@@ -1,0 +1,5 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+function uriFromPath(e){var a=path.resolve(e).replace(/\\/g,"/");return a.length>0&&"/"!==a.charAt(0)&&(a="/"+a),encodeURI("file://"+a)}global.vscodeStart=(new Date).getTime();var app=require("app"),path=require("path");try{process.env.VSCODE_CWD&&process.chdir(process.env.VSCODE_CWD)}catch(err){}if(process.env.VSCODE_DEV){var appData=app.getPath("appData");app.setPath("userData",path.join(appData,"Code-Development"))}global.macOpenFiles=[],app.on("open-file",function(e,a){global.macOpenFiles.push(a)}),app.once("ready",function(){var e=require("../../loader");e.config({nodeRequire:require,nodeMain:__filename,baseUrl:uriFromPath(path.dirname(path.dirname(path.dirname(__dirname))))}),e(["vs/workbench/electron-main/main"],function(e){},function(e){console.error(e)})});
