@@ -1,5 +1,7 @@
 # Visual Studio Code Portable
 
+Visual Studio Code is a code editor redefined and optimized for building and debugging modern web and cloud applications.
+
 Visual Studio Code Portable is the Visual Studio Code text editor packaged with a PortableApps.com launcher as a portable app, so you can browse in privacy on your iPod, USB flash drive, portable hard drive, etc. It has all the same features as Visual Studio Code, plus, it leaves no personal information behind on the machine you run it on, so you can take it with you wherever you go.
 
 ## System Requirements
