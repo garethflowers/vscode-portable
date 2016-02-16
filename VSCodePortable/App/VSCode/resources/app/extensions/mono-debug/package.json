@@ -1,6 +1,6 @@
 {
 	"name": "mono-debug",
-	"version": "0.10.1",
+	"version": "0.10.4",
 	"publisher": "isidor",
 	"description": "Visual Studio Code debug adapter for mono",
 	"author": {
@@ -8,23 +8,34 @@
 	},
 	"license": "MIT",
 	"private": true,
+	"scripts": {
+		"prepublish": "gulp build",
+		"test": "node ./node_modules/mocha/bin/mocha --timeout 999999 -u tdd ./tests/out/"
+	},
 	"engines": {
-		"vscode": "0.10.x"
+		"vscode": "^0.10.1"
 	},
 	"dependencies": {
 	},
 	"repository": {
 		"type": "git",
-		"url": "https://monacotools.visualstudio.com/DefaultCollection/Monaco/_git/vscode-mono-debug"
+		"url": "https://github.com/Microsoft/vscode-mono-debug.git"
+	},
+	"bugs": {
+		"url": "https://github.com/Microsoft/vscode-mono-debug/issues"
 	},
 	"devDependencies": {
 		"gulp": "^3.9.0",
 		"gulp-util": "^3.0.5",
 		"gulp-azure-storage": "*",
+		"gulp-tsb": "*",
 		"git-rev-sync": "*",
 		"del": "*",
 		"run-sequence": "*",
-		"gulp-vinyl-zip": "*"
+		"gulp-vinyl-zip": "*",
+		"mocha": "^2.3.4",
+		"typescript": "^1.7.3",
+		"vscode-debugprotocol": "^1.5.0"
 	},
 	"contributes": {
 		"debuggers": [{
@@ -43,11 +54,12 @@
 					"name": "Launch",
 					"type": "mono",
 					"request": "launch",
-					"program": "program.exe",
+					"program": "${workspaceRoot}/program.exe",
 					"args": [],
-					"cwd": ".",
+					"cwd": "${workspaceRoot}",
 					"runtimeExecutable": null,
-					"env": { }
+					"env": { },
+					"externalConsole": false
 				},
 				{
 					"name": "Attach",
@@ -91,6 +103,11 @@
 							"type": "object",
 							"description": "Environment variables passed to the program.",
 							"default": {}
+						},
+						"externalConsole": {
+							"type": "boolean",
+							"description": "Launch debug target in external console.",
+							"default": true
 						}
 					}
 				},

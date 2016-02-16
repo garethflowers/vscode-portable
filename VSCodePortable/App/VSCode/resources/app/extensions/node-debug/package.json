@@ -1,39 +1,54 @@
 {
-  "name": "node-debug",
-  "version": "0.10.1",
-  "publisher": "isidor",
-  "description": "Visual Studio Code debug adapter for node.js",
-  "author": {
-    "name": "Microsoft Corporation"
-  },
-  "private": true,
-  "engines": {
-    "node": ">= 0.12.0",
-    "vscode": "0.10.x"
-  },
-  "dependencies": {
-	  "source-map": "*"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://monacotools.visualstudio.com/DefaultCollection/Monaco/_git/vscode-node-debug"
-  },
-  "devDependencies": {
-    "gulp": "^3.9.0",
-    "gulp-util": "^3.0.5",
-    "gulp-tsb": "git://github.com/jrieken/gulp-tsb.git#bbf53f1d4b503b9080f8c300208b3ffa829a12c7",
-    "gulp-azure-storage": "*",
-    "git-rev-sync": "*",
-    "del": "*",
-    "run-sequence": "*",
-    "gulp-vinyl-zip": "*"
-  },
-  "contributes": {
+	"name": "node-debug",
+	"version": "0.10.4",
+	"publisher": "andreweinand",
+	"description": "Visual Studio Code debug adapter for node.js",
+	"author": {
+		"name": "Microsoft Corporation"
+	},
+	"private": true,
+	"scripts": {
+		"prepublish": "gulp build",
+		"test": "node ./node_modules/mocha/bin/mocha -u tdd ./out/tests/"
+	},
+	"engines": {
+		"node": ">= 0.12.0",
+		"vscode": "^0.10.1"
+	},
+	"dependencies": {
+		"vscode-debugprotocol": "^1.5.0",
+		"vscode-debugadapter": "^1.5.0",
+		"source-map": "*"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Microsoft/vscode-node-debug.git"
+	},
+	"bugs": {
+		"url": "https://github.com/Microsoft/vscode-node-debug/issues"
+	},
+	"devDependencies": {
+		"gulp": "^3.9.0",
+		"gulp-util": "^3.0.5",
+		"gulp-tsb": "*",
+		"gulp-filter": "^3.0.1",
+		"gulp-azure-storage": "*",
+		"gulp-tslint": "^4.3.0",
+		"tslint-microsoft-contrib": "^2.0.0",
+		"git-rev-sync": "*",
+		"del": "*",
+		"run-sequence": "*",
+		"gulp-vinyl-zip": "*",
+		"mocha": "^2.3.4",
+		"tslint": "^3.2.2",
+		"typescript": "^1.7.3"
+	},
+	"contributes": {
 		"debuggers": [
 			{
 				"type": "node",
 				"label": "Node.js",
-				"enableBreakpointsFor": { "languageIds": ["javascript"] },
+				"enableBreakpointsFor": { "languageIds": ["javascript", "javascriptreact"] },
 				"program": "./out/node/nodeDebug.js",
 				"runtime": "node",
 				"initialConfigurations": [
@@ -41,10 +56,10 @@
 						"name": "Launch",
 						"type": "node",
 						"request": "launch",
-						"program": "app.js",
+						"program": "${workspaceRoot}/app.js",
 						"stopOnEntry": false,
 						"args": [],
-						"cwd": ".",
+						"cwd": "${workspaceRoot}",
 						"runtimeExecutable": null,
 						"runtimeArgs": ["--nolazy"],
 						"env": {
@@ -58,16 +73,20 @@
 						"name": "Attach",
 						"type": "node",
 						"request": "attach",
-						"port": 5858
+						"port": 5858,
+						"sourceMaps": false,
+						"outDir": null,
+						"localRoot": "${workspaceRoot}",
+						"remoteRoot": null
 					}
 				],
 				"configurationAttributes": {
 					"launch": {
-						"required": ["program"],
+						"required": ["program", "cwd"],
 						"properties": {
 							"program": {
 								"type": "string",
-								"description": "Workspace relative path to the program."
+								"description": "Absolute path to the program."
 							},
 							"stopOnEntry": {
 								"type": "boolean",
@@ -87,12 +106,12 @@
 							},
 							"cwd": {
 								"type": "string",
-								"description": "Workspace relative or absolute path to the working directory of the program being debugged. Default is the current workspace.",
+								"description": "Absolute path to the working directory of the program being debugged. Default is the current workspace.",
 								"default": "."
 							},
 							"runtimeExecutable": {
 								"type": ["string", "null"],
-								"description": "Workspace relative or absolute path to the runtime executable to be used. Default is the runtime executable on the PATH.",
+								"description": "Absolute path to the runtime executable to be used. Default is the runtime executable on the PATH.",
 								"default": null
 							},
 							"runtimeArgs": {
@@ -103,6 +122,7 @@
 							},
 							"env": {
 								"type": "object",
+								"additionalProperties": { "type": "string" },
 								"description": "Environment variables passed to the program.",
 								"default": {}
 							},
@@ -119,12 +139,21 @@
 						}
 					},
 					"attach": {
-						"required": ["port"],
 						"properties": {
 							"port": {
 								"type": "number",
-								"description": "Port to attach to.",
-								"default": "undefined"
+								"description": "Debug port to attach to. Default is 5858.",
+								"default": "5858"
+							},
+							"address": {
+								"type": "string",
+								"description": "TCP/IP address of debug port (for node >= 5.0 only). Default is 'localhost'.",
+								"default": "localhost"
+							},
+							"timeout": {
+								"type": "number",
+								"description": "Retry for this number of milliseconds to connect to the node runtime. Default is 10000 ms.",
+								"default": "10000"
 							},
 							"sourceMaps": {
 								"type": "boolean",
@@ -134,6 +163,21 @@
 							"outDir": {
 								"type": ["string", "null"],
 								"description": "If source maps are enabled, the generated code is expected in this directory. If not specified, the generated code is expected in the same directory as its source.",
+								"default": null
+							},
+							"stopOnEntry": {
+								"type": "boolean",
+								"description": "Automatically stop program after launch.",
+								"default": true
+							},
+							"localRoot": {
+								"type": ["string", "null"],
+								"description": "The local source root that corresponds to the 'remoteRoot'.",
+								"default": null
+							},
+							"remoteRoot": {
+								"type": ["string", "null"],
+								"description": "The source root of the remote host.",
 								"default": null
 							}
 						}

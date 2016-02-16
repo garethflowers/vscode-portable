@@ -6,10 +6,12 @@ var Path = require('path');
 var FS = require('fs');
 var source_map_1 = require('source-map');
 var PathUtils = require('./pathUtilities');
+var util = require('../../node_modules/source-map/lib/util.js');
 var SourceMaps = (function () {
     function SourceMaps(generatedCodeDirectory) {
-        this._generatedToSourceMaps = {}; // generated -> source file
-        this._sourceToGeneratedMaps = {}; // source file -> generated
+        this._allSourceMaps = {}; // map file path -> SourceMap
+        this._generatedToSourceMaps = {}; // generated file -> SourceMap
+        this._sourceToGeneratedMaps = {}; // source file -> SourceMap
         this._generatedCodeDirectory = generatedCodeDirectory;
     }
     SourceMaps.prototype.MapPathFromSource = function (pathToSource) {
@@ -17,14 +19,13 @@ var SourceMaps = (function () {
         if (map)
             return map.generatedPath();
         return null;
-        ;
     };
     SourceMaps.prototype.MapFromSource = function (pathToSource, line, column) {
         var map = this._findSourceToGeneratedMapping(pathToSource);
         if (map) {
             line += 1; // source map impl is 1 based
             var mr = map.generatedPositionFor(pathToSource, line, column);
-            if (typeof mr.line === 'number') {
+            if (mr && typeof mr.line === 'number') {
                 if (SourceMaps.TRACE)
                     console.error(Path.basename(pathToSource) + " " + line + ":" + column + " -> " + mr.line + ":" + mr.column);
                 return { path: map.generatedPath(), line: mr.line - 1, column: mr.column };
@@ -37,130 +38,158 @@ var SourceMaps = (function () {
         if (map) {
             line += 1; // source map impl is 1 based
             var mr = map.originalPositionFor(line, column);
-            if (mr.source) {
+            if (mr && mr.source) {
                 if (SourceMaps.TRACE)
                     console.error(Path.basename(pathToGenerated) + " " + line + ":" + column + " -> " + mr.line + ":" + mr.column);
-                return { path: mr.source, line: mr.line - 1, column: mr.column };
+                return { path: mr.source, content: mr.content, line: mr.line - 1, column: mr.column };
             }
         }
         return null;
     };
     //---- private -----------------------------------------------------------------------
+    /**
+     * Tries to find a SourceMap for the given source.
+     * This is difficult because the source does not contain any information about where
+     * the generated code or the source map is located.
+     * Our strategy is as follows:
+     * - search in all known source maps whether if refers to this source in the sources array.
+     * - ...
+     */
     SourceMaps.prototype._findSourceToGeneratedMapping = function (pathToSource) {
-        if (pathToSource) {
-            if (pathToSource in this._sourceToGeneratedMaps) {
-                return this._sourceToGeneratedMaps[pathToSource];
+        if (!pathToSource) {
+            return null;
+        }
+        // try to find in existing
+        if (pathToSource in this._sourceToGeneratedMaps) {
+            return this._sourceToGeneratedMaps[pathToSource];
+        }
+        // a reverse lookup: in all source maps try to find pathToSource in the sources array
+        for (var key in this._generatedToSourceMaps) {
+            var m = this._generatedToSourceMaps[key];
+            if (m.doesOriginateFrom(pathToSource)) {
+                this._sourceToGeneratedMaps[pathToSource] = m;
+                return m;
             }
-            for (var key in this._generatedToSourceMaps) {
-                var m = this._generatedToSourceMaps[key];
-                if (m.doesOriginateFrom(pathToSource)) {
-                    this._sourceToGeneratedMaps[pathToSource] = m;
-                    return m;
+        }
+        // search for all map files in generatedCodeDirectory
+        if (this._generatedCodeDirectory) {
+            try {
+                var maps = FS.readdirSync(this._generatedCodeDirectory).filter(function (e) { return Path.extname(e.toLowerCase()) === '.map'; });
+                for (var _i = 0; _i < maps.length; _i++) {
+                    var map_name = maps[_i];
+                    var map_path = Path.join(this._generatedCodeDirectory, map_name);
+                    var m = this._loadSourceMap(map_path);
+                    if (m && m.doesOriginateFrom(pathToSource)) {
+                        this._sourceToGeneratedMaps[pathToSource] = m;
+                        return m;
+                    }
                 }
             }
-            // not found in existing maps
+            catch (e) {
+            }
+        }
+        // no map found
+        var pathToGenerated = pathToSource;
+        var ext = Path.extname(pathToSource);
+        if (ext !== 'js') {
             // use heuristic: change extension to ".js" and find a map for it
-            var pathToGenerated = pathToSource;
             var pos = pathToSource.lastIndexOf('.');
             if (pos >= 0) {
                 pathToGenerated = pathToSource.substr(0, pos) + '.js';
             }
-            var map = null;
-            // first look into the generated code directory
-            if (this._generatedCodeDirectory) {
-                var rest = PathUtils.makeRelative(this._generatedCodeDirectory, pathToGenerated);
-                while (rest) {
-                    var path = Path.join(this._generatedCodeDirectory, rest);
-                    map = this._findGeneratedToSourceMapping(path);
-                    if (map) {
-                        break;
-                    }
-                    rest = PathUtils.removeFirstSegment(rest);
+        }
+        var map = null;
+        // first look into the generated code directory
+        if (this._generatedCodeDirectory) {
+            var rest = PathUtils.makeRelative(this._generatedCodeDirectory, pathToGenerated);
+            while (rest) {
+                var path = Path.join(this._generatedCodeDirectory, rest);
+                map = this._findGeneratedToSourceMapping(path);
+                if (map) {
+                    break;
                 }
+                rest = PathUtils.removeFirstSegment(rest);
             }
-            // VSCode extension host support:
-            // we know that the plugin has an "out" directory next to the "src" directory
-            if (map === null) {
-                var srcSegment = Path.sep + 'src' + Path.sep;
-                if (pathToGenerated.indexOf(srcSegment) >= 0) {
-                    var outSegment = Path.sep + 'out' + Path.sep;
-                    pathToGenerated = pathToGenerated.replace(srcSegment, outSegment);
-                    map = this._findGeneratedToSourceMapping(pathToGenerated);
-                }
-            }
-            // if not found look in the same directory as the source
-            if (map === null && pathToGenerated !== pathToSource) {
+        }
+        // VSCode extension host support:
+        // we know that the plugin has an "out" directory next to the "src" directory
+        if (map === null) {
+            var srcSegment = Path.sep + 'src' + Path.sep;
+            if (pathToGenerated.indexOf(srcSegment) >= 0) {
+                var outSegment = Path.sep + 'out' + Path.sep;
+                pathToGenerated = pathToGenerated.replace(srcSegment, outSegment);
                 map = this._findGeneratedToSourceMapping(pathToGenerated);
             }
+        }
+        // if not found look in the same directory as the source
+        if (map === null && pathToGenerated !== pathToSource) {
+            map = this._findGeneratedToSourceMapping(pathToGenerated);
+        }
+        if (map) {
+            this._sourceToGeneratedMaps[pathToSource] = map;
+            return map;
+        }
+        // nothing found
+        return null;
+    };
+    /**
+     * Tries to find a SourceMap for the given path to a generated file.
+     * This is simple if the generated file has the 'sourceMappingURL' at the end.
+     * If not, we are using some heuristics...
+     */
+    SourceMaps.prototype._findGeneratedToSourceMapping = function (pathToGenerated) {
+        if (!pathToGenerated) {
+            return null;
+        }
+        if (pathToGenerated in this._generatedToSourceMaps) {
+            return this._generatedToSourceMaps[pathToGenerated];
+        }
+        // try to find a source map URL in the generated file
+        var map_path = null;
+        var uri = this._findSourceMapUrlInFile(pathToGenerated);
+        if (uri) {
+            // if uri is data url source map is inlined in generated file
+            if (uri.indexOf("data:application/json;base64,") >= 0) {
+                var pos = uri.indexOf(',');
+                if (pos > 0) {
+                    var data = uri.substr(pos + 1);
+                    try {
+                        var buffer = new Buffer(data, 'base64');
+                        var json = buffer.toString();
+                        if (json) {
+                            return this._registerSourceMap(new SourceMap(pathToGenerated, pathToGenerated, json));
+                        }
+                    }
+                    catch (e) {
+                        console.error("_findGeneratedToSourceMapping: exception while processing data url (" + e + ")");
+                    }
+                }
+            }
+            else {
+                map_path = uri;
+            }
+        }
+        // if path is relative make it absolute
+        if (map_path && !Path.isAbsolute(map_path)) {
+            map_path = PathUtils.makePathAbsolute(pathToGenerated, map_path);
+        }
+        if (!map_path || !FS.existsSync(map_path)) {
+            // try to find map file next to the generated source
+            map_path = pathToGenerated + '.map';
+        }
+        if (map_path && FS.existsSync(map_path)) {
+            var map = this._loadSourceMap(map_path, pathToGenerated);
             if (map) {
-                this._sourceToGeneratedMaps[pathToSource] = map;
                 return map;
             }
         }
         return null;
     };
-    SourceMaps.prototype._findGeneratedToSourceMapping = function (pathToGenerated) {
-        if (pathToGenerated) {
-            if (pathToGenerated in this._generatedToSourceMaps) {
-                return this._generatedToSourceMaps[pathToGenerated];
-            }
-            var map = null;
-            // try to find a source map URL in the generated source
-            var map_path = null;
-            var uri = this._findSourceMapInGeneratedSource(pathToGenerated);
-            if (uri) {
-                if (uri.indexOf("data:application/json;base64,") >= 0) {
-                    var pos = uri.indexOf(',');
-                    if (pos > 0) {
-                        var data = uri.substr(pos + 1);
-                        try {
-                            var buffer = new Buffer(data, 'base64');
-                            var json = buffer.toString();
-                            if (json) {
-                                map = new SourceMap(pathToGenerated, json);
-                                this._generatedToSourceMaps[pathToGenerated] = map;
-                                return map;
-                            }
-                        }
-                        catch (e) {
-                            console.error("FindGeneratedToSourceMapping: exception while processing data url (" + e + ")");
-                        }
-                    }
-                }
-                else {
-                    map_path = uri;
-                }
-            }
-            // if path is relative make it absolute
-            if (map_path && !Path.isAbsolute(map_path)) {
-                map_path = PathUtils.makePathAbsolute(pathToGenerated, map_path);
-            }
-            if (map_path === null || !FS.existsSync(map_path)) {
-                // try to find map file next to the generated source
-                map_path = pathToGenerated + ".map";
-            }
-            if (FS.existsSync(map_path)) {
-                map = this._createSourceMap(map_path, pathToGenerated);
-                if (map) {
-                    this._generatedToSourceMaps[pathToGenerated] = map;
-                    return map;
-                }
-            }
-        }
-        return null;
-    };
-    SourceMaps.prototype._createSourceMap = function (map_path, path) {
-        try {
-            var contents = FS.readFileSync(Path.join(map_path)).toString();
-            return new SourceMap(path, contents);
-        }
-        catch (e) {
-            console.error("CreateSourceMap: {e}");
-        }
-        return null;
-    };
-    //  find "//# sourceMappingURL=<url>"
-    SourceMaps.prototype._findSourceMapInGeneratedSource = function (pathToGenerated) {
+    /**
+     * try to find the 'sourceMappingURL' in the file with the given path.
+     * Returns null in case of errors.
+     */
+    SourceMaps.prototype._findSourceMapUrlInFile = function (pathToGenerated) {
         try {
             var contents = FS.readFileSync(pathToGenerated).toString();
             var lines = contents.split('\n');
@@ -177,6 +206,34 @@ var SourceMaps = (function () {
         }
         return null;
     };
+    /**
+     * Loads source map from file system.
+     * If no generatedPath is given, the 'file' attribute of the source map is used.
+     */
+    SourceMaps.prototype._loadSourceMap = function (map_path, generatedPath) {
+        if (map_path in this._allSourceMaps) {
+            return this._allSourceMaps[map_path];
+        }
+        try {
+            var mp = Path.join(map_path);
+            var contents = FS.readFileSync(mp).toString();
+            var map = new SourceMap(mp, generatedPath, contents);
+            this._allSourceMaps[map_path] = map;
+            this._registerSourceMap(map);
+            return map;
+        }
+        catch (e) {
+            console.error("_loadSourceMap: {e}");
+        }
+        return null;
+    };
+    SourceMaps.prototype._registerSourceMap = function (map) {
+        var gp = map.generatedPath();
+        if (gp) {
+            this._generatedToSourceMaps[gp] = map;
+        }
+        return map;
+    };
     SourceMaps.TRACE = false;
     SourceMaps.SOURCE_MAPPING_MATCHER = new RegExp("//[#@] ?sourceMappingURL=(.+)$");
     return SourceMaps;
@@ -188,78 +245,158 @@ var Bias;
     Bias[Bias["LEAST_UPPER_BOUND"] = 2] = "LEAST_UPPER_BOUND";
 })(Bias || (Bias = {}));
 var SourceMap = (function () {
-    function SourceMap(generatedPath, json) {
-        this._generatedFile = generatedPath;
+    function SourceMap(mapPath, generatedPath, json) {
+        var _this = this;
+        this._sourcemapLocation = this.toUrl(Path.dirname(mapPath));
         var sm = JSON.parse(json);
-        this._sources = sm.sources;
-        var sr = sm.sourceRoot;
-        if (sr) {
-            sr = PathUtils.canonicalizeUrl(sr);
-            this._sourceRoot = PathUtils.makePathAbsolute(generatedPath, sr);
+        if (!generatedPath) {
+            var file = sm.file;
+            if (!PathUtils.isAbsolutePath(file)) {
+                generatedPath = PathUtils.makePathAbsolute(mapPath, file);
+            }
         }
-        else {
-            this._sourceRoot = Path.dirname(generatedPath);
+        this._generatedFile = generatedPath;
+        // try to fix all embedded paths because:
+        // - source map sources are URLs, so even on Windows they should be using forward slashes.
+        // - the source-map library expects forward slashes and their relative path logic
+        //   (specifically the "normalize" function) gives incorrect results when passing in backslashes.
+        // - paths starting with drive letters are not recognized as absolute by the source-map library
+        sm.sourceRoot = this.toUrl(sm.sourceRoot, '');
+        for (var i = 0; i < sm.sources.length; i++) {
+            sm.sources[i] = this.toUrl(sm.sources[i]);
         }
-        if (this._sourceRoot[this._sourceRoot.length - 1] !== Path.sep) {
-            this._sourceRoot += Path.sep;
+        this._sourceRoot = sm.sourceRoot;
+        // use source-map utilities to normalize sources entries
+        this._sources = sm.sources
+            .map(util.normalize)
+            .map(function (source) {
+            return _this._sourceRoot && util.isAbsolute(_this._sourceRoot) && util.isAbsolute(source)
+                ? util.relative(_this._sourceRoot, source)
+                : source;
+        });
+        try {
+            this._smc = new source_map_1.SourceMapConsumer(sm);
         }
-        this._smc = new source_map_1.SourceMapConsumer(sm);
+        catch (e) {
+        }
     }
+    SourceMap.prototype.toUrl = function (path, dflt) {
+        if (path) {
+            path = path.replace(/\\/g, '/');
+            // if path starts with a drive letter convert path to a file:/// url so that the source-map library can handle it
+            if (/^[a-zA-Z]\:\//.test(path)) {
+                path = 'file:///' + path;
+            }
+            // if path contains upper case drive letter convert to lower case
+            if (/^file\:\/\/\/[A-Z]\:\//.test(path)) {
+                var dl = path[8];
+                path = path.replace(dl, dl.toLowerCase());
+            }
+            return path;
+        }
+        return dflt;
+    };
     /*
-     * the generated file of this source map.
+     * The generated file this source map belongs to.
      */
     SourceMap.prototype.generatedPath = function () {
         return this._generatedFile;
     };
     /*
-     * returns true if this source map originates from the given source.
+     * Returns true if this source map originates from the given source.
      */
     SourceMap.prototype.doesOriginateFrom = function (absPath) {
+        return this.findSource(absPath) !== null;
+    };
+    /**
+     * returns the first entry from the sources array that matches the given absPath
+     * or null otherwise.
+     */
+    SourceMap.prototype.findSource = function (absPath) {
+        // on Windows change back slashes to forward slashes because the source-map library requires this
+        if (process.platform === 'win32') {
+            absPath = absPath.replace(/\\/g, '/');
+        }
         for (var _i = 0, _a = this._sources; _i < _a.length; _i++) {
             var name_1 = _a[_i];
-            var p = Path.join(this._sourceRoot, name_1);
-            if (p === absPath) {
-                return true;
+            if (!util.isAbsolute(name_1)) {
+                name_1 = util.join(this._sourceRoot, name_1);
+            }
+            var url = this.absolutePath(name_1);
+            if (absPath === url) {
+                return name_1;
             }
         }
-        return false;
+        return null;
+    };
+    /**
+     * Tries to make the given path absolute by prefixing it with the source maps location.
+     * Any url schemes are removed.
+     */
+    SourceMap.prototype.absolutePath = function (path) {
+        if (!util.isAbsolute(path)) {
+            path = util.join(this._sourcemapLocation, path);
+        }
+        var prefix = 'file://';
+        if (path.indexOf(prefix) === 0) {
+            path = path.substr(prefix.length);
+            if (/^\/[a-zA-Z]\:\//.test(path)) {
+                path = path.substr(1);
+            }
+        }
+        return path;
     };
     /*
-     * finds the nearest source location for the given location in the generated file.
+     * Finds the nearest source location for the given location in the generated file.
+     * Returns null if sourcemap is invalid.
      */
     SourceMap.prototype.originalPositionFor = function (line, column, bias) {
-        if (bias === void 0) { bias = Bias.GREATEST_LOWER_BOUND; }
-        var mp = this._smc.originalPositionFor({
-            line: line,
-            column: column,
-            bias: bias
-        });
-        if (mp.source) {
-            mp.source = PathUtils.canonicalizeUrl(mp.source);
-            mp.source = PathUtils.makePathAbsolute(this._generatedFile, mp.source);
-        }
-        return mp;
-    };
-    /*
-     * finds the nearest location in the generated file for the given source location.
-     */
-    SourceMap.prototype.generatedPositionFor = function (src, line, column, bias) {
-        if (bias === void 0) { bias = Bias.GREATEST_LOWER_BOUND; }
-        // make input path relative to sourceRoot
-        if (this._sourceRoot) {
-            src = Path.relative(this._sourceRoot, src);
-        }
-        // source-maps always use forward slashes
-        if (process.platform === 'win32') {
-            src = src.replace(/\\/g, '/');
+        if (bias === void 0) { bias = Bias.LEAST_UPPER_BOUND; }
+        if (!this._smc) {
+            return null;
         }
         var needle = {
-            source: src,
             line: line,
             column: column,
             bias: bias
         };
-        return this._smc.generatedPositionFor(needle);
+        var mp = this._smc.originalPositionFor(needle);
+        if (mp.source) {
+            // if source map has inlined source, return it
+            var src = this._smc.sourceContentFor(mp.source);
+            if (src) {
+                mp.content = src;
+            }
+            // map result back to absolute path
+            mp.source = this.absolutePath(mp.source);
+            // on Windows change forward slashes back to back slashes
+            if (process.platform === 'win32') {
+                mp.source = mp.source.replace(/\//g, '\\');
+            }
+        }
+        return mp;
+    };
+    /*
+     * Finds the nearest location in the generated file for the given source location.
+     * Returns null if sourcemap is invalid.
+     */
+    SourceMap.prototype.generatedPositionFor = function (absPath, line, column, bias) {
+        if (bias === void 0) { bias = Bias.LEAST_UPPER_BOUND; }
+        if (!this._smc) {
+            return null;
+        }
+        // make sure that we use an entry from the "sources" array that matches the passed absolute path
+        var source = this.findSource(absPath);
+        if (source) {
+            var needle = {
+                source: source,
+                line: line,
+                column: column,
+                bias: bias
+            };
+            return this._smc.generatedPositionFor(needle);
+        }
+        return null;
     };
     return SourceMap;
 })();

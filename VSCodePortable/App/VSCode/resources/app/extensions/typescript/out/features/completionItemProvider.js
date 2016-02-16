@@ -1,7 +1,7 @@
-/* --------------------------------------------------------------------------------------------
- * Copyright (c) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License. See License.txt in the project root for license information.
- * ------------------------------------------------------------------------------------------ */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
 'use strict';
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
@@ -45,6 +45,8 @@ var MyCompletionItem = (function (_super) {
                 return vscode_1.CompletionItemKind.Class;
             case PConst.Kind.interface:
                 return vscode_1.CompletionItemKind.Interface;
+            case PConst.Kind.warning:
+                return vscode_1.CompletionItemKind.File;
         }
         return vscode_1.CompletionItemKind.Property;
     };

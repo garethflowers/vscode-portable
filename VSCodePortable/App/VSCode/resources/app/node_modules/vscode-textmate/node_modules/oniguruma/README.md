@@ -2,7 +2,7 @@
 
 Native Node bindings to the Oniguruma regular expressions library.
 
-Read all about Oniguruma regular expressions [here](http://www.geocities.jp/kosako3/oniguruma/doc/RE.txt).
+Read all about Oniguruma regular expressions [here](http://oniguruma.rubyforge.org/oniguruma/files/Syntax_txt.html).
 
 Version 2.0 of this library added an asynchronous API, the old synchronous
 methods have been renamed to have a `Sync` suffix.

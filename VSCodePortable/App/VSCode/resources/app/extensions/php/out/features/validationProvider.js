@@ -70,6 +70,7 @@ define(["require", "exports", 'child_process', 'string_decoder', 'vscode', './ut
     var PHPValidationProvider = (function () {
         function PHPValidationProvider() {
             this.executable = null;
+            this.validationEnabled = true;
             this.trigger = RunTrigger.onSave;
             this.executableNotFound = false;
         }
@@ -84,8 +85,6 @@ define(["require", "exports", 'child_process', 'string_decoder', 'vscode', './ut
                 _this.diagnosticCollection.delete(textDocument.uri);
                 delete _this.delayers[textDocument.uri.toString()];
             }, null, subscriptions);
-            // Validate all open php documents
-            vscode.workspace.textDocuments.forEach(this.triggerValidate, this);
         };
         PHPValidationProvider.prototype.dispose = function () {
             this.diagnosticCollection.clear();
@@ -96,6 +95,7 @@ define(["require", "exports", 'child_process', 'string_decoder', 'vscode', './ut
             var section = vscode.workspace.getConfiguration('php');
             var oldExecutable = this.executable;
             if (section) {
+                this.validationEnabled = section.get('validate.enable', true);
                 this.executable = section.get('validate.executablePath', null);
                 this.trigger = RunTrigger.from(section.get('validate.run', RunTrigger.strings.onSave));
             }
@@ -106,27 +106,30 @@ define(["require", "exports", 'child_process', 'string_decoder', 'vscode', './ut
             if (this.documentListener) {
                 this.documentListener.dispose();
             }
-            if (this.trigger === RunTrigger.onType) {
-                this.documentListener = vscode.workspace.onDidChangeTextDocument(function (e) {
-                    _this.triggerValidate(e.document);
-                });
+            this.diagnosticCollection.clear();
+            if (this.validationEnabled) {
+                if (this.trigger === RunTrigger.onType) {
+                    this.documentListener = vscode.workspace.onDidChangeTextDocument(function (e) {
+                        _this.triggerValidate(e.document);
+                    });
+                }
+                else {
+                    this.documentListener = vscode.workspace.onDidSaveTextDocument(this.triggerValidate, this);
+                }
+                // Configuration has changed. Reevaluate all documents.
+                vscode.workspace.textDocuments.forEach(this.triggerValidate, this);
             }
-            else {
-                this.documentListener = vscode.workspace.onDidSaveTextDocument(this.triggerValidate, this);
-            }
-            // Configuration has changed. Reevaluate all documents.
-            vscode.workspace.textDocuments.forEach(this.triggerValidate, this);
         };
         PHPValidationProvider.prototype.triggerValidate = function (textDocument) {
             var _this = this;
-            if (textDocument.languageId !== 'php' || this.executableNotFound) {
+            if (textDocument.languageId !== 'php' || this.executableNotFound || !this.validationEnabled) {
                 return;
             }
             var key = textDocument.uri.toString();
             var delayer = this.delayers[key];
             if (!delayer) {
                 delayer = new async_1.ThrottledDelayer(this.trigger === RunTrigger.onType ? 250 : 0);
-                this.delayers[key];
+                this.delayers[key] = delayer;
             }
             delayer.trigger(function () { return _this.doValidate(textDocument); });
         };

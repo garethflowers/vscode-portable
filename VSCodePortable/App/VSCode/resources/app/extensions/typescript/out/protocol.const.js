@@ -1,7 +1,7 @@
-/* --------------------------------------------------------------------------------------------
- * Copyright (c) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License. See License.txt in the project root for license information.
- * ------------------------------------------------------------------------------------------ */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
 'use strict';
 var Kind = (function () {
     function Kind() {
@@ -33,6 +33,7 @@ var Kind = (function () {
     Kind.alias = 'alias';
     Kind.const = 'const';
     Kind.let = 'let';
+    Kind.warning = 'warning';
     return Kind;
 })();
 exports.Kind = Kind;

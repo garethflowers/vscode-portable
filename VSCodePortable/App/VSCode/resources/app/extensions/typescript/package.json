@@ -14,7 +14,8 @@
 	},
 	"activationEvents": [
 		"onLanguage:typescript",
-		"onLanguage:typescriptreact"
+		"onLanguage:typescriptreact",
+		"onCommand:typescript.reloadProjects"
 	],
 	"main": "./out/typescriptMain",
 	"contributes": {
@@ -74,12 +75,19 @@
 			"command": "^acceptSelectedSuggestion",
 			"when": "editorTextFocus && suggestWidgetVisible && editorLangId == 'typescript' && suggestionSupportsAcceptOnKey"
 		},
+		"commands": [
+			{
+				"command": "typescript.reloadProjects",
+				"title": "Reload Projects",
+				"category": "TypeScript"
+			}
+		],
 		"debuggers": [
 			{
 				"type": "node",
 				"enableBreakpointsFor": {
 					"languageIds": [
-						"typescript"
+						"typescript", "typescriptreact"
 					]
 				}
 			},
@@ -100,6 +108,16 @@
 			{
 				"language": "typescriptreact",
 				"path": "./snippets/typescriptreact.json"
+			}
+		],
+		"jsonValidation": [
+			{
+				"fileMatch": "tsconfig.json",
+				"url": "http://json.schemastore.org/tsconfig"
+			},
+			{
+				"fileMatch": "tsconfig.json",
+				"url": "./schemas/tsconfig.schema.json"
 			}
 		]
 	}

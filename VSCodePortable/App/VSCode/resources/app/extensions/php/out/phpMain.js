@@ -11,6 +11,10 @@ define(["require", "exports", './features/completionItemProvider', './features/h
         context.subscriptions.push(vscode_1.languages.registerSignatureHelpProvider('php', new signatureHelpProvider_1.default(), '(', ','));
         var validator = new validationProvider_1.default();
         validator.activate(context.subscriptions);
+        // need to set in the plugin host as well as the completion provider uses it.
+        vscode_1.languages.setLanguageConfiguration('php', {
+            wordPattern: /(-?\d*\.\d\w*)|([^\`\~\!\@\#\%\^\&\*\(\)\=\+\[\{\]\}\\\|\;\:\'\"\,\.\<\>\/\?\s]+)/g
+        });
     }
     exports.activate = activate;
 });

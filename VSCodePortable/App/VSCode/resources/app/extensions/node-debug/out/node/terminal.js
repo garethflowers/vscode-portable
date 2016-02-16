@@ -119,14 +119,13 @@ var WindowsTerminalService = (function (_super) {
         // Therefore we use TASKKILL.EXE
         return new Promise(function (resolve, reject) {
             var cmd = "taskkill /F /T /PID " + pid;
-            CP.exec(cmd, function (err, stdout, stderr) {
-                if (err) {
-                    reject(err);
-                }
-                else {
-                    resolve();
-                }
-            });
+            try {
+                CP.execSync(cmd);
+                resolve();
+            }
+            catch (err) {
+                reject(err);
+            }
         });
     };
     WindowsTerminalService.CMD = 'cmd.exe';

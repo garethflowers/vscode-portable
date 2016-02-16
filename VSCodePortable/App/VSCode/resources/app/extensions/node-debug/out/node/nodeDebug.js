@@ -7,9 +7,8 @@ var __extends = (this && this.__extends) || function (d, b) {
     function __() { this.constructor = d; }
     d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 };
-var debugSession_1 = require('../common/debugSession');
+var vscode_debugadapter_1 = require('vscode-debugadapter');
 var nodeV8Protocol_1 = require('./nodeV8Protocol');
-var handles_1 = require('../common/handles');
 var sourceMaps_1 = require('./sourceMaps');
 var terminal_1 = require('./terminal');
 var PathUtils = require('./pathUtilities');
@@ -63,7 +62,7 @@ var ArrayExpander = (function () {
             // then add indexed properties as ranges
             for (var start = 0; start < _this._size; start += RANGESIZE) {
                 var end = Math.min(start + RANGESIZE, _this._size) - 1;
-                variables.push(new debugSession_1.Variable("[" + start + ".." + end + "]", ' ', session._variableHandles.create(new PropertyRangeExpander(_this._object, start, end))));
+                variables.push(new vscode_debugadapter_1.Variable("[" + start + ".." + end + "]", ' ', session._variableHandles.create(new PropertyRangeExpander(_this._object, start, end))));
             }
             done();
         });
@@ -71,36 +70,55 @@ var ArrayExpander = (function () {
     return ArrayExpander;
 })();
 exports.ArrayExpander = ArrayExpander;
+/**
+ * This class represents an internal line/column breakpoint and its verification state.
+ * It is only used temporarily in the setBreakpointsRequest.
+ */
+var InternalBreakpoint = (function () {
+    function InternalBreakpoint() {
+    }
+    return InternalBreakpoint;
+})();
+exports.InternalBreakpoint = InternalBreakpoint;
+/**
+ * A SourceSource represents the source contents of an internal module or of a source map with inlined contents.
+ */
+var SourceSource = (function () {
+    function SourceSource(sid, content) {
+        this.scriptId = sid;
+        this.source = content;
+    }
+    return SourceSource;
+})();
 var NodeDebugSession = (function (_super) {
     __extends(NodeDebugSession, _super);
     function NodeDebugSession(debuggerLinesStartAt1, isServer) {
         var _this = this;
         if (isServer === void 0) { isServer = false; }
         _super.call(this, debuggerLinesStartAt1, isServer);
-        this._variableHandles = new handles_1.Handles();
-        this._frameHandles = new handles_1.Handles();
+        this._variableHandles = new vscode_debugadapter_1.Handles();
+        this._frameHandles = new vscode_debugadapter_1.Handles();
+        this._sourceHandles = new vscode_debugadapter_1.Handles();
         this._refCache = new Map();
+        this._pollForNodeProcess = false;
         this._nodeProcessId = -1; // pid of the node runtime
         this._nodeExtensionsAvailable = false;
         this._tryToExtendNode = true;
         this._attachMode = false;
         this._node = new nodeV8Protocol_1.NodeV8Protocol();
         this._node.on('break', function (event) {
-            if (NodeDebugSession.TRACE_INITIALISATION)
-                console.error('_init: got break event from node');
-            _this._stopped();
-            _this._lastStoppedEvent = _this.createStoppedEvent(event.body);
+            _this._stopped('break');
+            _this._lastStoppedEvent = _this._createStoppedEvent(event.body);
             if (_this._lastStoppedEvent.body.reason === NodeDebugSession.ENTRY_REASON) {
-                if (NodeDebugSession.TRACE_INITIALISATION)
-                    console.error('_init: supressed stop-on-entry event');
+                _this._log('NodeDebugSession: supressed stop-on-entry event');
             }
             else {
                 _this.sendEvent(_this._lastStoppedEvent);
             }
         });
         this._node.on('exception', function (event) {
-            _this._stopped();
-            _this._lastStoppedEvent = _this.createStoppedEvent(event.body);
+            _this._stopped('exception');
+            _this._lastStoppedEvent = _this._createStoppedEvent(event.body);
             _this.sendEvent(_this._lastStoppedEvent);
         });
         this._node.on('close', function (event) {
@@ -116,7 +134,8 @@ var NodeDebugSession = (function (_super) {
     /**
      * clear everything that is no longer valid after a new stopped event.
      */
-    NodeDebugSession.prototype._stopped = function () {
+    NodeDebugSession.prototype._stopped = function (reason) {
+        this._log("_stopped: got " + reason + " event from node");
         this._exception = undefined;
         this._variableHandles.reset();
         this._frameHandles.reset();
@@ -124,41 +143,37 @@ var NodeDebugSession = (function (_super) {
     };
     /**
      * The debug session has terminated.
-     * If a port is given, this data is added to the event so that a client can try to reconnect.
      */
-    NodeDebugSession.prototype._terminated = function (reason, reattachPort) {
-        if (NodeDebugSession.TRACE)
-            console.error('_terminate: ' + reason);
+    NodeDebugSession.prototype._terminated = function (reason) {
+        this._log("_terminated: " + reason);
         if (this._terminalProcess) {
-            // delay the TerminatedEvent so that the user can see the result of the process in the terminal
+            // if the debug adapter owns a terminal,
+            // we delay the TerminatedEvent so that the user can see the result of the process in the terminal.
             return;
         }
         if (!this._isTerminated) {
             this._isTerminated = true;
-            var e = new debugSession_1.TerminatedEvent();
-            // piggyback the port to re-attach
-            if (reattachPort) {
-                if (!e.body) {
-                    e.body = {};
-                }
-                e.body.extensionHost = {
-                    reattachPort: reattachPort
-                };
-            }
-            this.sendEvent(e);
+            this.sendEvent(new vscode_debugadapter_1.TerminatedEvent());
         }
     };
     //---- initialize request -------------------------------------------------------------------------------------------------
     NodeDebugSession.prototype.initializeRequest = function (response, args) {
+        this._log("initializeRequest: adapterID: " + args.adapterID);
         this._adapterID = args.adapterID;
+        //---- Send back feature and their options
+        // This debug adapter supports the configurationDoneRequest.
+        response.body.supportsConfigurationDoneRequest = true;
+        // This debug adapter does not (yet) support a side effect free evaluate request for data hovers.
+        response.body.supportsEvaluateForHovers = false;
+        // This debug adapter does not (yet) support function breakpoints.
+        response.body.supportsFunctionBreakpoints = false;
         this.sendResponse(response);
     };
     //---- launch request -----------------------------------------------------------------------------------------------------
     NodeDebugSession.prototype.launchRequest = function (response, args) {
         var _this = this;
         this._externalConsole = (typeof args.externalConsole === 'boolean') && args.externalConsole;
-        this._stopOnEntry = (typeof args.externalConsole === 'boolean') && args.stopOnEntry;
-        this._initializeSourceMaps(args);
+        this._processCommonArgs(args);
         var port = random(3000, 50000);
         var runtimeExecutable = this.convertClientPathToDebugger(args.runtimeExecutable);
         if (runtimeExecutable) {
@@ -176,33 +191,18 @@ var NodeDebugSession = (function (_super) {
         }
         var runtimeArgs = args.runtimeArgs || [];
         var programArgs = args.args || [];
-        this._lazy = true; // node by default starts in '--lazy' mode
         // special code for 'extensionHost' debugging
         if (this._adapterID === 'extensionHost') {
-            var extensionHostData = args.extensionHostData;
-            if (extensionHostData) {
-                // re-attach to the received port
-                port = extensionHostData.reattachPort;
-            }
-            else {
-                // make sure that we launch VSCode and not just electron pretending to be node
-                delete process.env['ATOM_SHELL_INTERNAL_RUN_AS_NODE'];
-                // we know that extensionHost is always launched with --nolazy
-                this._lazy = false;
-                // we always launch in 'debug-brk' mode, but we only show the break event if 'stopOnEntry' attribute is true.
-                var launchArgs_1 = [runtimeExecutable, ("--debugBrkPluginHost=" + port)].concat(runtimeArgs, programArgs);
-                this._sendLaunchCommandToConsole(launchArgs_1);
-                var cmd = CP.spawn(runtimeExecutable, launchArgs_1.slice(1));
-                cmd.on('error', function (err) {
-                    _this._terminated("failed to launch extensionHost (" + err + ")");
-                });
-                this._captureOutput(cmd);
-            }
-            // try to attach
-            setTimeout(function () {
-                _this._attach(response, port, 3000);
-            }, 2000);
+            // we always launch in 'debug-brk' mode, but we only show the break event if 'stopOnEntry' attribute is true.
+            var launchArgs_1 = [runtimeExecutable, ("--debugBrkPluginHost=" + port)].concat(runtimeArgs, programArgs);
+            this._sendLaunchCommandToConsole(launchArgs_1);
+            var cmd = CP.spawn(runtimeExecutable, launchArgs_1.slice(1));
+            cmd.on('error', function (err) {
+                _this._terminated("failed to launch extensionHost (" + err + ")");
+            });
+            this._captureOutput(cmd);
             // we are done!
+            this.sendResponse(response);
             return;
         }
         var programPath = args.program;
@@ -210,6 +210,10 @@ var NodeDebugSession = (function (_super) {
             programPath = this.convertClientPathToDebugger(programPath);
             if (!FS.existsSync(programPath)) {
                 this.sendErrorResponse(response, 2007, "program '{path}' does not exist", { path: programPath });
+                return;
+            }
+            if (programPath != PathUtils.realPath(programPath)) {
+                this.sendErrorResponse(response, 2021, "program path uses differently cased character than file on disk; this might result in breakpoints not being hit");
                 return;
             }
         }
@@ -255,15 +259,6 @@ var NodeDebugSession = (function (_super) {
             workingDirectory = Path.dirname(programPath);
             program = Path.basename(programPath);
         }
-        if (runtimeArgs.indexOf('--nolazy') >= 0) {
-            this._lazy = false;
-        }
-        else {
-            if (runtimeArgs.indexOf('--lazy') < 0) {
-                runtimeArgs.push('--nolazy'); // we force node to compile everything so that breakpoints work immediately
-                this._lazy = false;
-            }
-        }
         // we always break on entry (but if user did not request this, we will not stop in the UI).
         var launchArgs = [runtimeExecutable, ("--debug-brk=" + port)].concat(runtimeArgs, [program], programArgs);
         if (this._externalConsole) {
@@ -276,9 +271,12 @@ var NodeDebugSession = (function (_super) {
                         _this._terminated('terminal exited');
                     });
                 }
+                // since node starts in a terminal, we cannot track it with an 'exit' handler
+                // plan for polling after we have gotten the process pid.
+                _this._pollForNodeProcess = true;
                 _this._attach(response, port);
             }).catch(function (error) {
-                _this.sendErrorResponse(response, 2011, "cannot launch target in terminal (reason: {_error})", { _error: error.message }, debugSession_1.ErrorDestination.Telemetry | debugSession_1.ErrorDestination.User);
+                _this.sendErrorResponse(response, 2011, "cannot launch target in terminal (reason: {_error})", { _error: error.message }, vscode_debugadapter_1.ErrorDestination.Telemetry | vscode_debugadapter_1.ErrorDestination.User);
                 _this._terminated('terminal error: ' + error.message);
             });
         }
@@ -292,7 +290,7 @@ var NodeDebugSession = (function (_super) {
             };
             var cmd = CP.spawn(runtimeExecutable, launchArgs.slice(1), options);
             cmd.on('error', function (error) {
-                _this.sendErrorResponse(response, 2017, "cannot launch target (reason: {_error})", { _error: error.message }, debugSession_1.ErrorDestination.Telemetry | debugSession_1.ErrorDestination.User);
+                _this.sendErrorResponse(response, 2017, "cannot launch target (reason: {_error})", { _error: error.message }, vscode_debugadapter_1.ErrorDestination.Telemetry | vscode_debugadapter_1.ErrorDestination.User);
                 _this._terminated("failed to launch target (" + error + ")");
             });
             cmd.on('exit', function () {
@@ -307,7 +305,7 @@ var NodeDebugSession = (function (_super) {
         }
     };
     NodeDebugSession.prototype._sendLaunchCommandToConsole = function (args) {
-        // print the command to launch tghe target to the debug console
+        // print the command to launch the target to the debug console
         var cli = '';
         for (var _i = 0; _i < args.length; _i++) {
             var a = args[_i];
@@ -319,65 +317,69 @@ var NodeDebugSession = (function (_super) {
             }
             cli += ' ';
         }
-        this.sendEvent(new debugSession_1.OutputEvent(cli, 'console'));
+        this.sendEvent(new vscode_debugadapter_1.OutputEvent(cli, 'console'));
     };
     NodeDebugSession.prototype._captureOutput = function (process) {
         var _this = this;
-        var sanitize = function (s) { return s.toString().replace(/\r\n$/mg, '\n'); };
         process.stdout.on('data', function (data) {
-            _this.sendEvent(new debugSession_1.OutputEvent(data.toString(), 'stdout'));
+            _this.sendEvent(new vscode_debugadapter_1.OutputEvent(data.toString(), 'stdout'));
         });
         process.stderr.on('data', function (data) {
-            _this.sendEvent(new debugSession_1.OutputEvent(data.toString(), 'stderr'));
+            _this.sendEvent(new vscode_debugadapter_1.OutputEvent(data.toString(), 'stderr'));
         });
     };
-    NodeDebugSession.prototype._initializeSourceMaps = function (args) {
-        if (typeof args.sourceMaps === 'boolean' && args.sourceMaps) {
-            var generatedCodeDirectory = args.outDir;
-            this._sourceMaps = new sourceMaps_1.SourceMaps(generatedCodeDirectory);
+    NodeDebugSession.prototype._processCommonArgs = function (args) {
+        this._stopOnEntry = (typeof args.stopOnEntry === 'boolean') && args.stopOnEntry;
+        if (!this._sourceMaps) {
+            if (typeof args.sourceMaps === 'boolean' && args.sourceMaps) {
+                var generatedCodeDirectory = args.outDir;
+                this._sourceMaps = new sourceMaps_1.SourceMaps(generatedCodeDirectory);
+            }
         }
     };
     //---- attach request -----------------------------------------------------------------------------------------------------
     NodeDebugSession.prototype.attachRequest = function (response, args) {
-        this._initializeSourceMaps(args);
-        if (!args.port) {
-            this.sendErrorResponse(response, 2008, "property 'port' is missing");
-            return;
+        this._processCommonArgs(args);
+        if (this._adapterID === 'extensionHost') {
+            // in EH mode 'attach' means 'launch' mode
+            this._attachMode = false;
         }
-        var port = args.port;
-        this._attachMode = true;
-        this._attach(response, port);
+        else {
+            this._attachMode = true;
+        }
+        this._localRoot = args.localRoot;
+        this._remoteRoot = args.remoteRoot;
+        this._attach(response, args.port, args.address, args.timeout);
     };
     /*
      * shared code used in launchRequest and attachRequest
      */
-    NodeDebugSession.prototype._attach = function (response, port, timeout) {
+    NodeDebugSession.prototype._attach = function (response, port, address, timeout) {
         var _this = this;
-        if (timeout === void 0) { timeout = 5000; }
+        if (!port) {
+            port = 5858;
+        }
+        if (!address || address === 'localhost') {
+            address = '127.0.0.1';
+        }
+        if (!timeout) {
+            timeout = NodeDebugSession.ATTACH_TIMEOUT;
+        }
+        this._log("_attach: address: " + address + " port: " + port);
         var connected = false;
         var socket = new Net.Socket();
-        socket.connect(port);
+        socket.connect(port, address);
         socket.on('connect', function (err) {
-            if (NodeDebugSession.TRACE_INITIALISATION)
-                console.error('_init: connect event in _attach');
+            _this._log('_attach: connected');
             connected = true;
             _this._node.startDispatch(socket, socket);
-            if (_this._adapterID === 'extensionHost' /* && this._node.embeddedHostVersion === 4 */) {
-                // for some reason we need a 'continue' request to make node send the stop-on-entry event in node versions 4.x
-                _this._node.command('continue', null, function (resp) {
-                    _this._initialize(response);
-                });
-            }
-            else {
-                _this._initialize(response);
-            }
-            return;
+            _this._initialize(response);
         });
         var endTime = new Date().getTime() + timeout;
         socket.on('error', function (err) {
             if (connected) {
                 // since we are connected this error is fatal
-                _this._terminateAndRetry('socket error', port);
+                _this._terminated('socket error');
             }
             else {
                 // we are not yet connected so retry a few times
@@ -385,8 +387,7 @@ var NodeDebugSession = (function (_super) {
                     var now = new Date().getTime();
                     if (now < endTime) {
                         setTimeout(function () {
-                            if (NodeDebugSession.TRACE_INITIALISATION)
-                                console.error('_init: retry socket.connect');
+                            _this._log('_attach: retry socket.connect');
                             socket.connect(port);
                         }, 200); // retry after 200 ms
                     }
@@ -395,21 +396,13 @@ var NodeDebugSession = (function (_super) {
                     }
                 }
                 else {
-                    _this.sendErrorResponse(response, 2010, "cannot connect to runtime process (reason: {_error})", { _error: err });
+                    _this.sendErrorResponse(response, 2010, "cannot connect to runtime process (reason: {_error})", { _error: err.message });
                 }
             }
         });
         socket.on('end', function (err) {
-            _this._terminateAndRetry('socket end', port);
+            _this._terminated('socket end');
         });
-    };
-    NodeDebugSession.prototype._terminateAndRetry = function (reason, port) {
-        if (this._adapterID === 'extensionHost' && !this._inShutdown) {
-            this._terminated(reason, port);
-        }
-        else {
-            this._terminated(reason);
-        }
     };
     NodeDebugSession.prototype._initialize = function (response, retryCount) {
         var _this = this;
@@ -417,19 +410,19 @@ var NodeDebugSession = (function (_super) {
         this._node.command('evaluate', { expression: 'process.pid', global: true }, function (resp) {
             var ok = resp.success;
             if (resp.success) {
-                if (NodeDebugSession.TRACE_INITIALISATION)
-                    console.error('_init: retrieve node pid: OK');
                 _this._nodeProcessId = parseInt(resp.body.value);
+                _this._log("_initialize: got process id " + _this._nodeProcessId + " from node");
             }
             else {
                 if (resp.message.indexOf('process is not defined') >= 0) {
-                    if (NodeDebugSession.TRACE_INITIALISATION)
-                        console.error('_init: process not defined error; got no pid');
+                    _this._log('_initialize: process not defined error; got no pid');
                     ok = true; // continue and try to get process.pid later
                 }
             }
             if (ok) {
-                _this._pollForNodeTermination();
+                if (_this._pollForNodeProcess) {
+                    _this._pollForNodeTermination();
+                }
                 var runtimeSupportsExtension = _this._node.embeddedHostVersion === 0; // node version 0.x.x (io.js has version >= 1)
                 if (_this._tryToExtendNode && runtimeSupportsExtension) {
                     _this._extendDebugger(function (success) {
@@ -445,8 +438,7 @@ var NodeDebugSession = (function (_super) {
                 }
             }
             else {
-                if (NodeDebugSession.TRACE_INITIALISATION)
-                    console.error('_init: retrieve node pid: failed');
+                _this._log('_initialize: retrieving process id from node failed');
                 if (retryCount < 10) {
                     setTimeout(function () {
                         // recurse
@@ -455,7 +447,7 @@ var NodeDebugSession = (function (_super) {
                     return;
                 }
                 else {
-                    _this.sendNodeResponse(response, resp);
+                    _this._sendNodeResponse(response, resp);
                 }
             }
         });
@@ -487,14 +479,12 @@ var NodeDebugSession = (function (_super) {
             this._repeater(4, done, function (callback) {
                 _this._node.command('evaluate', { expression: contents }, function (resp) {
                     if (resp.success) {
-                        if (NodeDebugSession.TRACE_INITIALISATION)
-                            console.error('_init: node code inject: OK');
+                        _this._log('_extendDebugger: node code inject: OK');
                         _this._nodeExtensionsAvailable = true;
                         callback(false);
                     }
                     else {
-                        if (NodeDebugSession.TRACE_INITIALISATION)
-                            console.error('_init: node code inject: failed, try again...');
+                        _this._log('_extendDebugger: node code inject: failed, try again...');
                         callback(true);
                     }
                 });
@@ -513,8 +503,9 @@ var NodeDebugSession = (function (_super) {
     NodeDebugSession.prototype._startInitialize = function (stopped, n) {
         var _this = this;
         if (n === void 0) { n = 0; }
-        if (NodeDebugSession.TRACE_INITIALISATION)
-            console.error("_init: _startInitialize(" + stopped + ")");
+        if (n == 0) {
+            this._log("_startInitialize: stopped: " + stopped);
+        }
         // wait at most 500ms for receiving the break on entry event
         // (since in attach mode we cannot enforce that node is started with --debug-brk, we cannot assume that we receive this event)
         if (!this._gotEntryEvent && n < 10) {
@@ -525,15 +516,13 @@ var NodeDebugSession = (function (_super) {
             return;
         }
         if (this._gotEntryEvent) {
-            if (NodeDebugSession.TRACE_INITIALISATION)
-                console.error("_init: got break on entry event after " + n + " retries");
+            this._log("_startInitialize: got break on entry event after " + n + " retries");
             if (this._nodeProcessId <= 0) {
                 // if we haven't gotten a process pid so far, we try it again
                 this._node.command('evaluate', { expression: 'process.pid', global: true }, function (resp) {
                     if (resp.success) {
-                        if (NodeDebugSession.TRACE_INITIALISATION)
-                            console.error('_init: 2nd retrieve node pid: OK');
                         _this._nodeProcessId = parseInt(resp.body.value);
+                        _this._log("_initialize: got process id " + _this._nodeProcessId + " from node (2nd try)");
                     }
                     _this._middleInitialize(stopped);
                 });
@@ -543,14 +532,13 @@ var NodeDebugSession = (function (_super) {
             }
         }
         else {
-            if (NodeDebugSession.TRACE_INITIALISATION)
-                console.error("_init: no entry event after " + n + " retries; give up");
+            this._log("_startInitialize: no entry event after " + n + " retries; giving up");
             this._gotEntryEvent = true; // we pretend to got one so that no ENTRY_REASON event will show up later...
             this._node.command('frame', null, function (resp) {
                 if (resp.success) {
-                    _this.cacheRefs(resp);
-                    var s = _this.getValueFromCache(resp.body.script);
-                    _this.rememberEntryLocation(s.name, resp.body.line, resp.body.column);
+                    _this._cacheRefs(resp);
+                    var s = _this._getValueFromCache(resp.body.script);
+                    _this._rememberEntryLocation(s.name, resp.body.line, resp.body.column);
                 }
                 _this._middleInitialize(stopped);
             });
@@ -558,41 +546,23 @@ var NodeDebugSession = (function (_super) {
     };
     NodeDebugSession.prototype._middleInitialize = function (stopped) {
         // request UI to send breakpoints
-        if (NodeDebugSession.TRACE_INITIALISATION)
-            console.error('_init: -> fire initialize event');
-        this.sendEvent(new debugSession_1.InitializedEvent());
+        this._log('_middleInitialize: fire initialized event');
+        this.sendEvent(new vscode_debugadapter_1.InitializedEvent());
         // in attach-mode we don't know whether the debuggee has been launched in 'stop on entry' mode
         // so we use the stopped state of the VM
         if (this._attachMode) {
-            if (NodeDebugSession.TRACE_INITIALISATION)
-                console.error("_init: in attach mode we guess stopOnEntry flag to be \"" + stopped + "\"");
+            this._log("_middleInitialize: in attach mode we guess stopOnEntry flag to be \"" + stopped + "\"");
             this._stopOnEntry = stopped;
         }
         if (this._stopOnEntry) {
             // user has requested 'stop on entry' so send out a stop-on-entry
-            if (NodeDebugSession.TRACE_INITIALISATION)
-                console.error('_init: -> fire stop-on-entry event');
-            this.sendEvent(new debugSession_1.StoppedEvent(NodeDebugSession.ENTRY_REASON, NodeDebugSession.DUMMY_THREAD_ID));
+            this._log('_middleInitialize: fire stop-on-entry event');
+            this.sendEvent(new vscode_debugadapter_1.StoppedEvent(NodeDebugSession.ENTRY_REASON, NodeDebugSession.DUMMY_THREAD_ID));
         }
         else {
             // since we are stopped but UI doesn't know about this, remember that we continue later in finishInitialize()
-            if (NodeDebugSession.TRACE_INITIALISATION)
-                console.error('_init: remember to do a "Continue" later');
+            this._log('_middleInitialize: remember to do a "Continue" later');
             this._needContinue = true;
-        }
-    };
-    NodeDebugSession.prototype._finishInitialize = function () {
-        if (this._needContinue) {
-            this._needContinue = false;
-            if (NodeDebugSession.TRACE_INITIALISATION)
-                console.error('_init: do a "Continue"');
-            this._node.command('continue', null, function (nodeResponse) { });
-        }
-        if (this._needBreakpointEvent) {
-            this._needBreakpointEvent = false;
-            if (NodeDebugSession.TRACE_INITIALISATION)
-                console.error('_init: fire a breakpoint event');
-            this.sendEvent(new debugSession_1.StoppedEvent(NodeDebugSession.BREAKPOINT_REASON, NodeDebugSession.DUMMY_THREAD_ID));
         }
     };
     //---- disconnect request -------------------------------------------------------------------------------------------------
@@ -600,26 +570,31 @@ var NodeDebugSession = (function (_super) {
         // special code for 'extensionHost' debugging
         if (this._adapterID === 'extensionHost') {
             // detect whether this disconnect request is part of a restart session
-            if (args && args.extensionHostData && args.extensionHostData.restart && this._nodeProcessId > 0) {
+            if (this._nodeProcessId > 0 && args && typeof args.restart === 'boolean' && args.restart) {
+                // do not kill extensionHost (since vscode will do this for us in a nicer way without killing the window)
                 this._nodeProcessId = 0;
             }
         }
         _super.prototype.disconnectRequest.call(this, response, args);
     };
     /**
-     * we rely on the generic implementation from debugSession but we override 'v8Protocol.shutdown'
+     * we rely on the generic implementation from DebugSession but we override 'Protocol.shutdown'
      * to disconnect from node and kill node & subprocesses
      */
     NodeDebugSession.prototype.shutdown = function () {
         var _this = this;
         if (!this._inShutdown) {
             this._inShutdown = true;
-            this._node.command('disconnect'); // we don't wait for reponse
+            if (this._attachMode) {
+                // disconnect only in attach mode since otherwise node continues to run until it is killed
+                this._node.command('disconnect'); // we don't wait for reponse
+            }
             this._node.stop(); // stop socket connection (otherwise node.js dies with ECONNRESET on Windows)
             if (!this._attachMode) {
                 // kill the whole process tree either starting with the terminal or with the node process
                 var pid = this._terminalProcess ? this._terminalProcess.pid : this._nodeProcessId;
                 if (pid > 0) {
+                    this._log('shutdown: kill debugee and sub-processes');
                     terminal_1.Terminal.killTree(pid).then(function () {
                         _this._terminalProcess = null;
                         _this._nodeProcessId = -1;
@@ -638,107 +613,148 @@ var NodeDebugSession = (function (_super) {
     //--- set breakpoints request ---------------------------------------------------------------------------------------------
     NodeDebugSession.prototype.setBreakPointsRequest = function (response, args) {
         var _this = this;
-        var sourcemap = false;
-        var source = args.source;
-        var clientLines = args.lines;
-        // convert line numbers from client
-        var lines = new Array(clientLines.length);
-        var columns = new Array(clientLines.length);
-        for (var i = 0; i < clientLines.length; i++) {
-            lines[i] = this.convertClientLineToDebugger(clientLines[i]);
-            columns[i] = 0;
+        this._log("setBreakPointsRequest");
+        // normalize the two types of input arguments into an internal datastructure
+        var lbs = new Array();
+        if (args.breakpoints) {
+            // prefer the new API: array of breakpoints
+            for (var _i = 0, _a = args.breakpoints; _i < _a.length; _i++) {
+                var b = _a[_i];
+                lbs.push({
+                    line: this.convertClientLineToDebugger(b.line),
+                    column: typeof b.column === 'number' ? this.convertClientColumnToDebugger(b.column) : 0,
+                    expression: b.condition,
+                    actualLine: b.line,
+                    actualColumn: typeof b.column === 'number' ? b.column : this.convertDebuggerColumnToClient(1),
+                    verified: false,
+                    ignore: false
+                });
+            }
         }
-        var scriptId = -1;
-        var path = null;
-        // we assume that only one of the source attributes is specified.
-        if (source.path) {
-            path = this.convertClientPathToDebugger(source.path);
-            // resolve the path to a real path (resolve symbolic links)
-            //path = PathUtilities.RealPath(path, _realPathMap);
-            var p = null;
-            if (this._sourceMaps) {
-                p = this._sourceMaps.MapPathFromSource(path);
+        else {
+            // deprecated API: convert line number array
+            for (var _b = 0, _c = args.lines; _b < _c.length; _b++) {
+                var l = _c[_b];
+                lbs.push({
+                    line: this.convertClientLineToDebugger(l),
+                    column: 0,
+                    expression: undefined,
+                    actualLine: l,
+                    actualColumn: this.convertDebuggerColumnToClient(1),
+                    verified: false,
+                    ignore: false
+                });
             }
-            if (p) {
-                sourcemap = true;
-                // source map line numbers
-                for (var i = 0; i < lines.length; i++) {
-                    var pp = path;
-                    var mr = this._sourceMaps.MapFromSource(pp, lines[i], columns[i]);
-                    if (mr) {
-                        pp = mr.path;
-                        lines[i] = mr.line;
-                        columns[i] = mr.column;
-                    }
-                    if (pp !== p) {
-                    }
-                }
-                path = p;
-            }
-            else if (!NodeDebugSession.isJavaScript(path)) {
-                // return these breakpoints as unverified
-                var bpts = new Array();
-                for (var _i = 0; _i < clientLines.length; _i++) {
-                    var l = clientLines[_i];
-                    bpts.push(new debugSession_1.Breakpoint(false, l));
-                }
-                response.body = {
-                    breakpoints: bpts
-                };
-                this.sendResponse(response);
+        }
+        var source = args.source;
+        if (source.adapterData) {
+            if (source.adapterData.inlinePath) {
+                // a breakpoint in inlined source: we need to source map
+                this._mapSourceAndUpdateBreakpoints(response, source.adapterData.inlinePath, lbs);
                 return;
             }
-            this._clearAllBreakpoints(response, path, -1, lines, columns, sourcemap, clientLines);
+            if (source.adapterData.remotePath) {
+                // a breakpoint in a remote file: don't try to source map
+                this._updateBreakpoints(response, source.adapterData.remotePath, -1, lbs);
+                return;
+            }
+        }
+        if (source.sourceReference > 0) {
+            var srcSource = this._sourceHandles.get(source.sourceReference);
+            if (srcSource && srcSource.scriptId) {
+                this._updateBreakpoints(response, null, srcSource.scriptId, lbs);
+                return;
+            }
+        }
+        if (source.path) {
+            var path = this.convertClientPathToDebugger(source.path);
+            this._mapSourceAndUpdateBreakpoints(response, path, lbs);
             return;
         }
         if (source.name) {
-            this.findModule(source.name, function (id) {
-                scriptId = id;
-                _this._clearAllBreakpoints(response, null, scriptId, lines, columns, sourcemap, clientLines);
+            // a core module
+            this._findModule(source.name, function (scriptId) {
+                if (scriptId >= 0) {
+                    _this._updateBreakpoints(response, null, scriptId, lbs);
+                }
+                else {
+                    _this.sendErrorResponse(response, 2019, "internal module {_module} not found", { _module: source.name });
+                }
                 return;
             });
-        }
-        if (source.sourceReference > 0) {
-            scriptId = source.sourceReference - 1000;
-            this._clearAllBreakpoints(response, null, scriptId, lines, columns, sourcemap, clientLines);
             return;
         }
-        this.sendErrorResponse(response, 2012, "no source specified", null, debugSession_1.ErrorDestination.Telemetry);
+        this.sendErrorResponse(response, 2012, "no valid source specified", null, vscode_debugadapter_1.ErrorDestination.Telemetry);
+    };
+    NodeDebugSession.prototype._mapSourceAndUpdateBreakpoints = function (response, path, lbs) {
+        var sourcemap = false;
+        var p = null;
+        if (this._sourceMaps) {
+            p = this._sourceMaps.MapPathFromSource(path);
+        }
+        if (p) {
+            sourcemap = true;
+            // source map line numbers
+            for (var _i = 0; _i < lbs.length; _i++) {
+                var lb = lbs[_i];
+                var mapresult = this._sourceMaps.MapFromSource(path, lb.line, lb.column);
+                if (mapresult) {
+                    if (mapresult.path !== p) {
+                    }
+                    lb.line = mapresult.line;
+                    lb.column = mapresult.column;
+                }
+                else {
+                    // we couldn't map this breakpoint -> ignore it
+                    lb.ignore = true;
+                }
+            }
+            path = p;
+        }
+        else if (!NodeDebugSession.isJavaScript(path)) {
+            // ignore all breakpoints for this source
+            for (var _a = 0; _a < lbs.length; _a++) {
+                var lb = lbs[_a];
+                lb.ignore = true;
+            }
+        }
+        // try to convert local path to remote path
+        path = this._localToRemote(path);
+        this._updateBreakpoints(response, path, -1, lbs, sourcemap);
     };
     /*
-     * Phase 2 of setBreakpointsRequest: clear all breakpoints of a given file
+     * Phase 2 of setBreakpointsRequest: clear and set all breakpoints of a given source
      */
-    NodeDebugSession.prototype._clearAllBreakpoints = function (response, path, scriptId, lines, columns, sourcemap, clientLines) {
+    NodeDebugSession.prototype._updateBreakpoints = function (response, path, scriptId, lbs, sourcemap) {
         var _this = this;
+        if (sourcemap === void 0) { sourcemap = false; }
         // clear all existing breakpoints for the given path or script ID
         this._node.command('listbreakpoints', null, function (nodeResponse) {
             if (nodeResponse.success) {
                 var toClear = new Array();
+                var path_regexp = _this._pathToRegexp(path);
                 // try to match breakpoints
                 for (var _i = 0, _a = nodeResponse.body.breakpoints; _i < _a.length; _i++) {
                     var breakpoint = _a[_i];
-                    var type = breakpoint.type;
-                    switch (type) {
+                    switch (breakpoint.type) {
                         case 'scriptId':
-                            var script_id = breakpoint.script_id;
-                            if (script_id === scriptId) {
+                            if (scriptId === breakpoint.script_id) {
                                 toClear.push(breakpoint.number);
                             }
                             break;
-                        case 'scriptName':
-                            var script_name = breakpoint.script_name;
-                            if (script_name === path) {
+                        case 'scriptRegExp':
+                            if (path_regexp === breakpoint.script_regexp) {
                                 toClear.push(breakpoint.number);
                             }
                             break;
                     }
                 }
                 _this._clearBreakpoints(toClear, 0, function () {
-                    _this._finishSetBreakpoints(response, path, scriptId, lines, columns, sourcemap, clientLines);
+                    _this._finishSetBreakpoints(response, path, scriptId, lbs, sourcemap);
                 });
             }
             else {
-                _this.sendNodeResponse(response, nodeResponse);
+                _this._sendNodeResponse(response, nodeResponse);
             }
         });
     };
@@ -768,67 +784,63 @@ var NodeDebugSession = (function (_super) {
     /*
      * Finish the setBreakpointsRequest: set the breakpooints and send the verification response back to client
      */
-    NodeDebugSession.prototype._finishSetBreakpoints = function (response, path, scriptId, lines, columns, sourcemap, clientLines) {
+    NodeDebugSession.prototype._finishSetBreakpoints = function (response, path, scriptId, lbs, sourcemap) {
         var _this = this;
-        var breakpoints = new Array();
-        this._setBreakpoints(breakpoints, 0, path, scriptId, lines, columns, sourcemap, clientLines, function () {
+        this._setBreakpoints(0, path, scriptId, lbs, sourcemap, function () {
+            var breakpoints = new Array();
+            for (var _i = 0; _i < lbs.length; _i++) {
+                var lb = lbs[_i];
+                breakpoints.push(new vscode_debugadapter_1.Breakpoint(lb.verified, lb.actualLine, lb.actualColumn));
+            }
             response.body = {
                 breakpoints: breakpoints
             };
             _this.sendResponse(response);
+            _this._log("_finishSetBreakpoints: sent response");
         });
     };
     /**
      * Recursive function for setting node breakpoints.
      */
-    NodeDebugSession.prototype._setBreakpoints = function (breakpoints, ix, path, scriptId, lines, columns, sourcemap, clientLines, done) {
+    NodeDebugSession.prototype._setBreakpoints = function (ix, path, scriptId, lbs, sourcemap, done) {
         var _this = this;
-        if (lines.length == 0) {
+        if (lbs.length == 0) {
             done();
             return;
         }
-        this._robustSetBreakPoint(scriptId, path, lines[ix], columns[ix], function (verified, actualLine, actualColumn) {
-            // prepare sending breakpoint locations back to client
-            var sourceLine = clientLines[ix]; // we start with the original lines from the client
-            if (verified) {
+        this._setBreakpoint(scriptId, path, lbs[ix], function (success, actualLine, actualColumn) {
+            if (success) {
+                // breakpoint successfully set and we've got an actual location
                 if (sourcemap) {
-                    if (!_this._lazy) {
-                        // map adjusted js breakpoints back to source language
-                        if (path && _this._sourceMaps) {
-                            var p = path;
-                            var mr = _this._sourceMaps.MapToSource(p, actualLine, actualColumn);
-                            if (mr) {
-                                actualLine = mr.line;
-                                actualColumn = mr.column;
-                            }
+                    // this source uses a sourcemap so we have to map js locations back to source locations
+                    if (path && _this._sourceMaps) {
+                        var mapresult = _this._sourceMaps.MapToSource(path, actualLine, actualColumn);
+                        if (mapresult) {
+                            actualLine = mapresult.line;
+                            actualColumn = mapresult.column;
                         }
-                        sourceLine = _this.convertDebuggerLineToClient(actualLine);
                     }
                 }
-                else {
-                    sourceLine = _this.convertDebuggerLineToClient(actualLine);
-                }
+                lbs[ix].verified = true;
+                lbs[ix].actualLine = _this.convertDebuggerLineToClient(actualLine);
+                lbs[ix].actualColumn = _this.convertDebuggerColumnToClient(actualColumn);
             }
-            breakpoints[ix] = new debugSession_1.Breakpoint(verified, sourceLine);
             // nasty corner case: since we ignore the break-on-entry event we have to make sure that we
             // stop in the entry point line if the user has an explicit breakpoint there.
             // For this we check here whether a breakpoint is at the same location as the "break-on-entry" location.
             // If yes, then we plan for hitting the breakpoint instead of "continue" over it!
-            if (!_this._stopOnEntry) {
-                var li = verified ? actualLine : lines[ix];
-                var co = columns[ix]; // verified ? actualColumn : columns[ix];
-                if (_this._entryPath === path && _this._entryLine === li && _this._entryColumn === co) {
-                    // if yes, we do not have to "continue" but we have to generate a stopped event instead
+            if (!_this._stopOnEntry && _this._entryPath === path) {
+                if (_this._entryLine === lbs[ix].line && _this._entryColumn === lbs[ix].column) {
+                    // we do not have to "continue" but we have to generate a stopped event instead
                     _this._needContinue = false;
                     _this._needBreakpointEvent = true;
-                    if (NodeDebugSession.TRACE_INITIALISATION)
-                        console.error('_init: remember to fire a breakpoint event later');
+                    _this._log('_setBreakpoints: remember to fire a breakpoint event later');
                 }
             }
-            if (ix + 1 < lines.length) {
+            if (ix + 1 < lbs.length) {
                 setImmediate(function () {
                     // recurse
-                    _this._setBreakpoints(breakpoints, ix + 1, path, scriptId, lines, columns, sourcemap, clientLines, done);
+                    _this._setBreakpoints(ix + 1, path, scriptId, lbs, sourcemap, done);
                 });
             }
             else {
@@ -837,73 +849,92 @@ var NodeDebugSession = (function (_super) {
         });
     };
     /*
-     * register a single breakpoint with node and retry if it fails due to drive letter casing (on Windows)
-     */
-    NodeDebugSession.prototype._robustSetBreakPoint = function (scriptId, path, l, c, done) {
-        var _this = this;
-        this._setBreakpoint(scriptId, path, l, c, function (verified, actualLine, actualColumn) {
-            if (verified) {
-                done(true, actualLine, actualColumn);
-                return;
-            }
-            // take care of a mismatch of drive letter caseing
-            var root = PathUtils.getPathRoot(path);
-            if (root && root.length === 3) {
-                path = path.substring(0, 1).toUpperCase() + path.substring(1);
-                _this._setBreakpoint(scriptId, path, l, c, function (verified, actualLine, actualColumn) {
-                    if (verified) {
-                        done(true, actualLine, actualColumn);
-                    }
-                    else {
-                        done(false);
-                    }
-                });
-            }
-            else {
-                done(false);
-            }
-        });
-    };
-    /*
      * register a single breakpoint with node.
      */
-    NodeDebugSession.prototype._setBreakpoint = function (scriptId, path, l, c, cb) {
-        if (l === 0) {
-            c += NodeDebugSession.FIRST_LINE_OFFSET;
+    NodeDebugSession.prototype._setBreakpoint = function (scriptId, path, lb, done) {
+        var _this = this;
+        if (lb.ignore) {
+            // ignore this breakpoint because it couldn't be source mapped successfully
+            done(false);
+            return;
         }
-        var actualLine = l;
-        var actualColumn = c;
-        var a;
+        var line = lb.line;
+        var column = lb.column;
+        if (line === 0) {
+            column += NodeDebugSession.FIRST_LINE_OFFSET;
+        }
+        var info = path;
+        var a = {
+            line: line,
+            column: column
+        };
+        if (lb.expression) {
+            a.condition = lb.expression;
+        }
         if (scriptId > 0) {
-            a = { type: 'scriptId', target: scriptId, line: l, column: c };
+            a.type = 'scriptId';
+            a.target = scriptId;
+            info = '' + scriptId;
         }
         else {
-            a = { type: 'script', target: path, line: l, column: c };
+            a.type = 'scriptRegExp';
+            a.target = this._pathToRegexp(path);
         }
         this._node.command('setbreakpoint', a, function (resp) {
+            _this._log("_setBreakpoint: " + info + ": " + resp.success);
             if (resp.success) {
+                var actualLine = lb.line;
+                var actualColumn = lb.column;
                 var al = resp.body.actual_locations;
                 if (al.length > 0) {
                     actualLine = al[0].line;
-                    actualColumn = al[0].column;
-                    if (actualLine === 0) {
-                        actualColumn -= NodeDebugSession.FIRST_LINE_OFFSET;
-                        if (actualColumn < 0)
-                            actualColumn = 0;
+                    actualColumn = _this._adjustColumn(actualLine, al[0].column);
+                    if (actualLine !== lb.line) {
                     }
-                    if (actualLine !== l) {
-                    }
-                    cb(true, actualLine, actualColumn);
-                    return;
                 }
+                done(true, actualLine, actualColumn);
+                return;
             }
-            cb(false);
+            done(false);
             return;
         });
+    };
+    /**
+     * converts a path into a regular expression for use in the setbreakpoint request
+     */
+    NodeDebugSession.prototype._pathToRegexp = function (path) {
+        if (!path)
+            return path;
+        var escPath = path.replace(/([/\\.?*()^${}|[\]])/g, '\\$1');
+        // check for drive letter
+        if (/^[a-zA-Z]:\\/.test(path)) {
+            var u = escPath.substring(0, 1).toUpperCase();
+            var l = u.toLowerCase();
+            escPath = '[' + l + u + ']' + escPath.substring(1);
+        }
+        /*
+        // support case-insensitive breakpoint paths
+        const escPathUpper = escPath.toUpperCase();
+        const escPathLower = escPath.toLowerCase();
+
+        escPath = '';
+        for (var i = 0; i < escPathUpper.length; i++) {
+            const u = escPathUpper[i];
+            const l = escPathLower[i];
+            if (u === l) {
+                escPath += u;
+            } else {
+                escPath += '[' + l + u + ']';
+            }
+        }
+        */
+        var pathRegex = '^(.*[\\/\\\\])?' + escPath + '$'; // skips drive letters
+        return pathRegex;
     };
     //--- set exception request -----------------------------------------------------------------------------------------------
     NodeDebugSession.prototype.setExceptionBreakPointsRequest = function (response, args) {
         var _this = this;
+        this._log("setExceptionBreakPointsRequest");
         var f;
         var filters = args.filters;
         if (filters) {
@@ -923,27 +954,42 @@ var NodeDebugSession = (function (_super) {
                             _this._node.command('setexceptionbreak', { type: f, enabled: true }, function (nodeResponse3) {
                                 if (nodeResponse3.success) {
                                     _this.sendResponse(response); // send response for setexceptionbreak
-                                    _this._finishInitialize();
                                 }
                                 else {
-                                    _this.sendNodeResponse(response, nodeResponse3);
+                                    _this._sendNodeResponse(response, nodeResponse3);
                                 }
                             });
                         }
                         else {
                             _this.sendResponse(response); // send response for setexceptionbreak
-                            _this._finishInitialize();
                         }
                     }
                     else {
-                        _this.sendNodeResponse(response, nodeResponse2);
+                        _this._sendNodeResponse(response, nodeResponse2);
                     }
                 });
             }
             else {
-                _this.sendNodeResponse(response, nodeResponse1);
+                _this._sendNodeResponse(response, nodeResponse1);
             }
         });
+    };
+    //--- set exception request -----------------------------------------------------------------------------------------------
+    NodeDebugSession.prototype.configurationDoneRequest = function (response, args) {
+        // all breakpoints are configured now -> start debugging
+        var info = 'nothing to do';
+        if (this._needContinue) {
+            this._needContinue = false;
+            info = 'do a "Continue"';
+            this._node.command('continue', null, function (nodeResponse) { });
+        }
+        if (this._needBreakpointEvent) {
+            this._needBreakpointEvent = false;
+            info = 'fire breakpoint event';
+            this.sendEvent(new vscode_debugadapter_1.StoppedEvent(NodeDebugSession.BREAKPOINT_REASON, NodeDebugSession.DUMMY_THREAD_ID));
+        }
+        this._log("configurationDoneRequest: " + info);
+        this.sendResponse(response);
     };
     //--- threads request -----------------------------------------------------------------------------------------------------
     NodeDebugSession.prototype.threadsRequest = function (response) {
@@ -957,13 +1003,13 @@ var NodeDebugSession = (function (_super) {
                         var thread = ths[_i];
                         var id = thread.id;
                         if (id >= 0) {
-                            threads.push(new debugSession_1.Thread(id, NodeDebugSession.DUMMY_THREAD_NAME));
+                            threads.push(new vscode_debugadapter_1.Thread(id, NodeDebugSession.DUMMY_THREAD_NAME));
                         }
                     }
                 }
             }
             if (threads.length === 0) {
-                threads.push(new debugSession_1.Thread(NodeDebugSession.DUMMY_THREAD_ID, NodeDebugSession.DUMMY_THREAD_NAME));
+                threads.push(new vscode_debugadapter_1.Thread(NodeDebugSession.DUMMY_THREAD_ID, NodeDebugSession.DUMMY_THREAD_NAME));
             }
             response.body = {
                 threads: threads
@@ -977,7 +1023,7 @@ var NodeDebugSession = (function (_super) {
         var threadReference = args.threadId;
         var maxLevels = args.levels;
         if (threadReference !== NodeDebugSession.DUMMY_THREAD_ID) {
-            this.sendErrorResponse(response, 2014, "unexpected thread reference {_thread}", { _thread: threadReference }, debugSession_1.ErrorDestination.Telemetry);
+            this.sendErrorResponse(response, 2014, "unexpected thread reference {_thread}", { _thread: threadReference }, vscode_debugadapter_1.ErrorDestination.Telemetry);
             return;
         }
         var stackframes = new Array();
@@ -995,7 +1041,7 @@ var NodeDebugSession = (function (_super) {
         var _this = this;
         this._node.command('backtrace', { fromFrame: frameIx, toFrame: frameIx + 1 }, function (backtraceResponse) {
             if (backtraceResponse.success) {
-                _this.cacheRefs(backtraceResponse);
+                _this._cacheRefs(backtraceResponse);
                 var totalFrames = backtraceResponse.body.totalFrames;
                 if (maxLevels > 0 && totalFrames > maxLevels) {
                     totalFrames = maxLevels;
@@ -1007,44 +1053,80 @@ var NodeDebugSession = (function (_super) {
                 }
                 var frame = backtraceResponse.body.frames[0];
                 // resolve some refs
-                _this.getValues([frame.script, frame.func, frame.receiver], function () {
+                _this._getValues([frame.script, frame.func, frame.receiver], function () {
                     var line = frame.line;
-                    var column = frame.column;
+                    var column = _this._adjustColumn(line, frame.column);
                     var src = null;
-                    var script_val = _this.getValueFromCache(frame.script);
+                    var origin = "content streamed from node";
+                    var adapterData;
+                    var script_val = _this._getValueFromCache(frame.script);
                     if (script_val) {
                         var name_1 = script_val.name;
-                        if (name_1 && Path.isAbsolute(name_1)) {
-                            // try to map the real path back to a symbolic link
-                            // string path = PathUtilities.MapResolvedBack(name, _realPathMap);
-                            var path = name_1;
-                            name_1 = Path.basename(path);
-                            // workaround for column being off in the first line (because of a wrapped anonymous function)
-                            if (line === 0) {
-                                column -= NodeDebugSession.FIRST_LINE_OFFSET;
-                                if (column < 0)
-                                    column = 0;
+                        if (name_1 && PathUtils.isAbsolutePath(name_1)) {
+                            var remotePath = name_1; // with remote debugging path might come from a different OS
+                            // if launch.json defines localRoot and remoteRoot try to convert remote path back to a local path
+                            var localPath = _this._remoteToLocal(remotePath);
+                            if (localPath !== remotePath && _this._attachMode) {
+                                // assume attached to remote node process
+                                origin = "content streamed from remote node";
                             }
+                            name_1 = Path.basename(localPath);
                             // source mapping
                             if (_this._sourceMaps) {
-                                var mr = _this._sourceMaps.MapToSource(path, line, column);
-                                if (mr) {
-                                    path = mr.path;
-                                    line = mr.line;
-                                    column = mr.column;
+                                // try to map
+                                var mapresult = _this._sourceMaps.MapToSource(localPath, line, column);
+                                if (mapresult) {
+                                    // verify that a file exists at path
+                                    if (FS.existsSync(mapresult.path)) {
+                                        // use this mapping
+                                        localPath = mapresult.path;
+                                        name_1 = Path.basename(localPath);
+                                        line = mapresult.line;
+                                        column = mapresult.column;
+                                    }
+                                    else {
+                                        // file doesn't exist at path
+                                        // if source map has inlined source,
+                                        var content = mapresult.content;
+                                        if (content) {
+                                            name_1 = Path.basename(mapresult.path);
+                                            var sourceHandle = _this._sourceHandles.create(new SourceSource(0, content));
+                                            var adapterData_1 = {
+                                                inlinePath: mapresult.path
+                                            };
+                                            src = new vscode_debugadapter_1.Source(name_1, null, sourceHandle, "inlined content from source map", adapterData_1);
+                                            line = mapresult.line;
+                                            column = mapresult.column;
+                                        }
+                                    }
                                 }
                             }
-                            src = new debugSession_1.Source(name_1, _this.convertDebuggerPathToClient(path));
+                            if (src === null) {
+                                if (FS.existsSync(localPath)) {
+                                    src = new vscode_debugadapter_1.Source(name_1, _this.convertDebuggerPathToClient(localPath));
+                                }
+                                else {
+                                    // source doesn't exist locally
+                                    adapterData = {
+                                        remotePath: remotePath // assume it is a remote path
+                                    };
+                                }
+                            }
+                        }
+                        else {
+                            origin = "core module";
                         }
                         if (src === null) {
+                            // fall back: source not found locally -> prepare to stream source content from node backend.
                             var script_id = script_val.id;
                             if (script_id >= 0) {
-                                src = new debugSession_1.Source(name_1, null, 1000 + script_id);
+                                var sourceHandle = _this._sourceHandles.create(new SourceSource(script_id));
+                                src = new vscode_debugadapter_1.Source(name_1, null, sourceHandle, origin, adapterData);
                             }
                         }
                     }
                     var func_name;
-                    var func_val = _this.getValueFromCache(frame.func);
+                    var func_val = _this._getValueFromCache(frame.func);
                     if (func_val) {
                         func_name = func_val.inferredName;
                         if (!func_name || func_name.length === 0) {
@@ -1055,7 +1137,7 @@ var NodeDebugSession = (function (_super) {
                         func_name = NodeDebugSession.ANON_FUNCTION;
                     }
                     var frameReference = _this._frameHandles.create(frame);
-                    var sf = new debugSession_1.StackFrame(frameReference, func_name, src, _this.convertDebuggerLineToClient(line), _this.convertDebuggerColumnToClient(column));
+                    var sf = new vscode_debugadapter_1.StackFrame(frameReference, func_name, src, _this.convertDebuggerLineToClient(line), _this.convertDebuggerColumnToClient(column));
                     stackframes.push(sf);
                     if (frameIx + 1 < totalFrames) {
                         // recurse
@@ -1079,17 +1161,20 @@ var NodeDebugSession = (function (_super) {
     //--- scopes request ------------------------------------------------------------------------------------------------------
     NodeDebugSession.prototype.scopesRequest = function (response, args) {
         var _this = this;
-        var frameReference = args.frameId;
-        var frame = this._frameHandles.get(frameReference);
+        var frame = this._frameHandles.get(args.frameId);
+        if (!frame) {
+            this.sendErrorResponse(response, 2020, "stack frame not valid");
+            return;
+        }
         var frameIx = frame.index;
-        var frameThis = this.getValueFromCache(frame.receiver);
+        var frameThis = this._getValueFromCache(frame.receiver);
         this._node.command('scopes', { frame_index: frameIx, frameNumber: frameIx }, function (scopesResponse) {
             if (scopesResponse.success) {
-                _this.cacheRefs(scopesResponse);
+                _this._cacheRefs(scopesResponse);
                 var scopes = new Array();
                 // exception scope
                 if (frameIx === 0 && _this._exception) {
-                    scopes.push(new debugSession_1.Scope("Exception", _this._variableHandles.create(new PropertyExpander(_this._exception))));
+                    scopes.push(new vscode_debugadapter_1.Scope("Exception", _this._variableHandles.create(new PropertyExpander(_this._exception))));
                 }
                 _this._getScope(scopes, 0, scopesResponse.body.scopes, frameThis, function () {
                     response.body = {
@@ -1116,9 +1201,9 @@ var NodeDebugSession = (function (_super) {
         var scopeName = (type >= 0 && type < NodeDebugSession.SCOPE_NAMES.length) ? NodeDebugSession.SCOPE_NAMES[type] : ("Unknown Scope:" + type);
         var extra = type === 1 ? this_val : null;
         var expensive = type === 0;
-        this.getValue(scope.object, function (scopeObject) {
+        this._getValue(scope.object, function (scopeObject) {
             if (scopeObject) {
-                scopesResult.push(new debugSession_1.Scope(scopeName, _this._variableHandles.create(new PropertyExpander(scopeObject, extra)), expensive));
+                scopesResult.push(new vscode_debugadapter_1.Scope(scopeName, _this._variableHandles.create(new PropertyExpander(scopeObject, extra)), expensive));
             }
             if (scopeIx + 1 < scopes.length) {
                 setImmediate(function () {
@@ -1232,7 +1317,7 @@ var NodeDebugSession = (function (_super) {
             }
             if (selectedProperties.length > 0) {
                 // third pass: now lookup all refs at once
-                this.resolveToCache(needLookup, function () {
+                this._resolveToCache(needLookup, function () {
                     // build variables
                     _this._addVariables(variables, selectedProperties, 0, done);
                 });
@@ -1247,7 +1332,7 @@ var NodeDebugSession = (function (_super) {
     NodeDebugSession.prototype._addVariables = function (variables, properties, ix, done) {
         var _this = this;
         var property = properties[ix];
-        var val = this.getValueFromCache(property);
+        var val = this._getValueFromCache(property);
         var name = property.name;
         if (typeof name == 'number') {
             name = "[" + name + "]";
@@ -1345,7 +1430,7 @@ var NodeDebugSession = (function (_super) {
                                 }
                                 else {
                                     // the first property of arrays is the length
-                                    this.getValue(l, function (length_val) {
+                                    this._getValue(l, function (length_val) {
                                         var size = -1;
                                         if (length_val) {
                                             size = length_val.value;
@@ -1357,17 +1442,17 @@ var NodeDebugSession = (function (_super) {
                         }
                         return;
                     case 'RegExp':
-                        done(new debugSession_1.Variable(name, text, this._variableHandles.create(new PropertyExpander(val))));
+                        done(new vscode_debugadapter_1.Variable(name, text, this._variableHandles.create(new PropertyExpander(val))));
                         return;
                     case 'Object':
-                        this.getValue(val.constructorFunction, function (constructor_val) {
+                        this._getValue(val.constructorFunction, function (constructor_val) {
                             if (constructor_val) {
                                 var constructor_name = constructor_val.name;
                                 if (constructor_name) {
                                     value = constructor_name;
                                 }
                             }
-                            done(new debugSession_1.Variable(name, value, _this._variableHandles.create(new PropertyExpander(val))));
+                            done(new vscode_debugadapter_1.Variable(name, value, _this._variableHandles.create(new PropertyExpander(val))));
                         });
                         return;
                     case 'Function':
@@ -1385,50 +1470,50 @@ var NodeDebugSession = (function (_super) {
                         }
                         break;
                 }
-                done(new debugSession_1.Variable(name, value, this._variableHandles.create(new PropertyExpander(val))));
+                done(new vscode_debugadapter_1.Variable(name, value, this._variableHandles.create(new PropertyExpander(val))));
                 return;
             case 'string':
                 if (str_val) {
                     str_val = str_val.replace('\n', '\\n').replace('\r', '\\r');
                 }
-                done(new debugSession_1.Variable(name, "\"" + str_val + "\""));
+                done(new vscode_debugadapter_1.Variable(name, "\"" + str_val + "\""));
                 return;
             case 'boolean':
-                done(new debugSession_1.Variable(name, str_val.toString().toLowerCase())); // node returns these boolean values capitalized
+                done(new vscode_debugadapter_1.Variable(name, str_val.toString().toLowerCase())); // node returns these boolean values capitalized
                 return;
             case 'map':
             case 'set':
             case 'undefined':
             case 'null':
                 // type is only info we have
-                done(new debugSession_1.Variable(name, type));
+                done(new vscode_debugadapter_1.Variable(name, type));
                 return;
             case 'number':
-                done(new debugSession_1.Variable(name, '' + val.value));
+                done(new vscode_debugadapter_1.Variable(name, '' + val.value));
                 return;
             case 'frame':
             default:
-                done(new debugSession_1.Variable(name, str_val ? str_val.toString() : 'undefined'));
+                done(new vscode_debugadapter_1.Variable(name, str_val ? str_val.toString() : 'undefined'));
                 return;
         }
     };
     NodeDebugSession.prototype._createArrayVariable = function (name, val, value, size) {
         value += (size >= 0) ? "[" + size + "]" : '[]';
         var expander = (size > RANGESIZE) ? new ArrayExpander(val, size) : new PropertyExpander(val); // new PropertyRangeExpander(val, 0, size-1);
-        return new debugSession_1.Variable(name, value, this._variableHandles.create(expander));
+        return new vscode_debugadapter_1.Variable(name, value, this._variableHandles.create(expander));
     };
     //--- pause request -------------------------------------------------------------------------------------------------------
     NodeDebugSession.prototype.pauseRequest = function (response, args) {
         var _this = this;
         this._node.command('suspend', null, function (nodeResponse) {
             if (nodeResponse.success) {
-                _this._stopped();
-                _this._lastStoppedEvent = new debugSession_1.StoppedEvent(NodeDebugSession.USER_REQUEST_REASON, NodeDebugSession.DUMMY_THREAD_ID);
+                _this._stopped('pause');
+                _this._lastStoppedEvent = new vscode_debugadapter_1.StoppedEvent(NodeDebugSession.USER_REQUEST_REASON, NodeDebugSession.DUMMY_THREAD_ID);
                 _this.sendResponse(response);
                 _this.sendEvent(_this._lastStoppedEvent);
             }
             else {
-                _this.sendNodeResponse(response, nodeResponse);
+                _this._sendNodeResponse(response, nodeResponse);
             }
         });
     };
@@ -1436,26 +1521,26 @@ var NodeDebugSession = (function (_super) {
     NodeDebugSession.prototype.continueRequest = function (response, args) {
         var _this = this;
         this._node.command('continue', null, function (nodeResponse) {
-            _this.sendNodeResponse(response, nodeResponse);
+            _this._sendNodeResponse(response, nodeResponse);
         });
     };
     //--- step request --------------------------------------------------------------------------------------------------------
     NodeDebugSession.prototype.stepInRequest = function (response, args) {
         var _this = this;
         this._node.command('continue', { stepaction: 'in' }, function (nodeResponse) {
-            _this.sendNodeResponse(response, nodeResponse);
+            _this._sendNodeResponse(response, nodeResponse);
         });
     };
     NodeDebugSession.prototype.stepOutRequest = function (response, args) {
         var _this = this;
         this._node.command('continue', { stepaction: 'out' }, function (nodeResponse) {
-            _this.sendNodeResponse(response, nodeResponse);
+            _this._sendNodeResponse(response, nodeResponse);
         });
     };
     NodeDebugSession.prototype.nextRequest = function (response, args) {
         var _this = this;
         this._node.command('continue', { stepaction: 'next' }, function (nodeResponse) {
-            _this.sendNodeResponse(response, nodeResponse);
+            _this._sendNodeResponse(response, nodeResponse);
         });
     };
     //--- evaluate request ----------------------------------------------------------------------------------------------------
@@ -1469,6 +1554,10 @@ var NodeDebugSession = (function (_super) {
         };
         if (args.frameId > 0) {
             var frame = this._frameHandles.get(args.frameId);
+            if (!frame) {
+                this.sendErrorResponse(response, 2020, "stack frame not valid");
+                return;
+            }
             var frameIx = frame.index;
             evalArgs.frame = frameIx;
         }
@@ -1510,23 +1599,63 @@ var NodeDebugSession = (function (_super) {
     //--- source request ------------------------------------------------------------------------------------------------------
     NodeDebugSession.prototype.sourceRequest = function (response, args) {
         var _this = this;
-        var sourceId = args.sourceReference;
-        var sid = sourceId - 1000;
-        this._node.command('scripts', { types: 1 + 2 + 4, includeSource: true, ids: [sid] }, function (nodeResponse) {
-            if (nodeResponse.success) {
-                var content = nodeResponse.body[0].source;
+        var sourceHandle = args.sourceReference;
+        var srcSource = this._sourceHandles.get(sourceHandle);
+        if (srcSource.source) {
+            response.body = {
+                content: srcSource.source
+            };
+            this.sendResponse(response);
+            return;
+        }
+        if (srcSource.scriptId) {
+            this._node.command('scripts', { types: 1 + 2 + 4, includeSource: true, ids: [srcSource.scriptId] }, function (nodeResponse) {
+                if (nodeResponse.success) {
+                    srcSource.source = nodeResponse.body[0].source;
+                }
+                else {
+                    srcSource.source = "<source not found>";
+                }
                 response.body = {
-                    content: content
+                    content: srcSource.source
                 };
                 _this.sendResponse(response);
-            }
-            else {
-                _this.sendNodeResponse(response, nodeResponse);
-            }
-        });
+            });
+        }
+        else {
+            this.sendErrorResponse(response, 9999, "sourceRequest error");
+        }
     };
     //---- private helpers ----------------------------------------------------------------------------------------------------
-    NodeDebugSession.prototype.sendNodeResponse = function (response, nodeResponse) {
+    /**
+     * Tries to map a (local) VSCode path to a corresponding path on a remote host (where node is running).
+     * The remote host might use a different OS so we have to make sure to create correct file pathes.
+     */
+    NodeDebugSession.prototype._localToRemote = function (path) {
+        if (this._remoteRoot && this._localRoot) {
+            var relPath = PathUtils.makeRelative2(this._localRoot, path);
+            path = PathUtils.join(this._remoteRoot, relPath);
+            if (/^[a-zA-Z]:[\/\\]/.test(this._remoteRoot)) {
+                path = PathUtils.toWindows(path);
+            }
+        }
+        return path;
+    };
+    /**
+     * Tries to map a path from the remote host (where node is running) to a corresponding local path.
+     * The remote host might use a different OS so we have to make sure to create correct file pathes.
+     */
+    NodeDebugSession.prototype._remoteToLocal = function (path) {
+        if (this._remoteRoot && this._localRoot) {
+            var relPath = PathUtils.makeRelative2(this._remoteRoot, path);
+            path = PathUtils.join(this._localRoot, relPath);
+            if (process.platform === 'win32') {
+                relPath = PathUtils.toWindows(path);
+            }
+        }
+        return path;
+    };
+    NodeDebugSession.prototype._sendNodeResponse = function (response, nodeResponse) {
         if (nodeResponse.success) {
             this.sendResponse(response);
         }
@@ -1539,7 +1668,7 @@ var NodeDebugSession = (function (_super) {
                 this.sendErrorResponse(response, 2016, "node did not repond to request '{_request}' in a reasonable amount of time", { _request: nodeResponse.command });
             }
             else {
-                this.sendErrorResponse(response, 2013, "node request '{_request}' failed (reason: {_error})", { _request: nodeResponse.command, _error: errmsg }, debugSession_1.ErrorDestination.Telemetry);
+                this.sendErrorResponse(response, 2013, "node request '{_request}' failed (reason: {_error})", { _request: nodeResponse.command, _error: errmsg }, vscode_debugadapter_1.ErrorDestination.Telemetry);
             }
         }
     };
@@ -1562,31 +1691,31 @@ var NodeDebugSession = (function (_super) {
             done(false);
         }
     };
-    NodeDebugSession.prototype.cacheRefs = function (response) {
+    NodeDebugSession.prototype._cacheRefs = function (response) {
         var refs = response.refs;
         for (var _i = 0; _i < refs.length; _i++) {
             var r = refs[_i];
-            this.cache(r.handle, r);
+            this._cache(r.handle, r);
         }
     };
-    NodeDebugSession.prototype.cache = function (handle, o) {
+    NodeDebugSession.prototype._cache = function (handle, o) {
         this._refCache[handle] = o;
     };
-    NodeDebugSession.prototype.getValues = function (containers, done) {
+    NodeDebugSession.prototype._getValues = function (containers, done) {
         var handles = [];
         for (var _i = 0; _i < containers.length; _i++) {
             var container = containers[_i];
             handles.push(container.ref);
         }
-        this.resolveToCache(handles, function () {
+        this._resolveToCache(handles, function () {
             done();
         });
     };
-    NodeDebugSession.prototype.getValue = function (container, done) {
+    NodeDebugSession.prototype._getValue = function (container, done) {
         var _this = this;
         if (container) {
             var handle = container.ref;
-            this.resolveToCache([handle], function () {
+            this._resolveToCache([handle], function () {
                 var value = _this._refCache[handle];
                 done(value);
             });
@@ -1595,7 +1724,7 @@ var NodeDebugSession = (function (_super) {
             done(null);
         }
     };
-    NodeDebugSession.prototype.getValueFromCache = function (container) {
+    NodeDebugSession.prototype._getValueFromCache = function (container) {
         var handle = container.ref;
         var value = this._refCache[handle];
         if (value)
@@ -1603,7 +1732,7 @@ var NodeDebugSession = (function (_super) {
         // console.error("ref not found cache");
         return null;
     };
-    NodeDebugSession.prototype.resolveToCache = function (handles, done) {
+    NodeDebugSession.prototype._resolveToCache = function (handles, done) {
         var _this = this;
         var lookup = new Array();
         for (var _i = 0; _i < handles.length; _i++) {
@@ -1620,11 +1749,11 @@ var NodeDebugSession = (function (_super) {
         if (lookup.length > 0) {
             this._node.command(this._nodeExtensionsAvailable ? 'vscode_lookup' : 'lookup', { handles: lookup }, function (resp) {
                 if (resp.success) {
-                    _this.cacheRefs(resp);
+                    _this._cacheRefs(resp);
                     for (var key in resp.body) {
                         var obj = resp.body[key];
                         var handle = obj.handle;
-                        _this.cache(handle, obj);
+                        _this._cache(handle, obj);
                     }
                 }
                 else {
@@ -1640,7 +1769,7 @@ var NodeDebugSession = (function (_super) {
                         var handle = handles[i];
                         var r = _this._refCache[handle];
                         if (!r) {
-                            _this.cache(handle, val);
+                            _this._cache(handle, val);
                         }
                     }
                 }
@@ -1651,12 +1780,13 @@ var NodeDebugSession = (function (_super) {
             done();
         }
     };
-    NodeDebugSession.prototype.createStoppedEvent = function (body) {
+    NodeDebugSession.prototype._createStoppedEvent = function (body) {
         // workaround: load sourcemap for this location to populate cache
         if (this._sourceMaps) {
             var path = body.script.name;
-            if (path) {
-                var mr = this._sourceMaps.MapToSource(path, 0, 0);
+            if (path && PathUtils.isAbsolutePath(path)) {
+                path = this._remoteToLocal(path);
+                this._sourceMaps.MapToSource(path, 0, 0);
             }
         }
         var reason;
@@ -1674,10 +1804,7 @@ var NodeDebugSession = (function (_super) {
                 var id = breakpoints[0];
                 if (!this._gotEntryEvent && id === 1) {
                     reason = NodeDebugSession.ENTRY_REASON;
-                    var path = body.script.name;
-                    var line = body.sourceLine;
-                    var column = body.sourceColumn;
-                    this.rememberEntryLocation(path, line, column);
+                    this._rememberEntryLocation(body.script.name, body.sourceLine, body.sourceColumn);
                 }
                 else {
                     reason = NodeDebugSession.BREAKPOINT_REASON;
@@ -1695,31 +1822,48 @@ var NodeDebugSession = (function (_super) {
         if (!reason) {
             reason = NodeDebugSession.STEP_REASON;
         }
-        return new debugSession_1.StoppedEvent(reason, NodeDebugSession.DUMMY_THREAD_ID, exception_text);
+        return new vscode_debugadapter_1.StoppedEvent(reason, NodeDebugSession.DUMMY_THREAD_ID, exception_text);
     };
-    NodeDebugSession.prototype.rememberEntryLocation = function (path, line, column) {
+    NodeDebugSession.prototype._rememberEntryLocation = function (path, line, column) {
         if (path) {
             this._entryPath = path;
             this._entryLine = line;
-            this._entryColumn = column;
-            if (line === 0) {
-                this._entryColumn -= NodeDebugSession.FIRST_LINE_OFFSET;
-                if (this._entryColumn < 0)
-                    this._entryColumn = 0;
-            }
+            this._entryColumn = this._adjustColumn(line, column);
             this._gotEntryEvent = true;
         }
     };
-    NodeDebugSession.prototype.findModule = function (name, cb) {
+    /**
+     * workaround for column being off in the first line (because of a wrapped anonymous function)
+     */
+    NodeDebugSession.prototype._adjustColumn = function (line, column) {
+        if (line === 0) {
+            column -= NodeDebugSession.FIRST_LINE_OFFSET;
+            if (column < 0) {
+                column = 0;
+            }
+        }
+        return column;
+    };
+    NodeDebugSession.prototype._findModule = function (name, done) {
         this._node.command('scripts', { types: 1 + 2 + 4, filter: name }, function (resp) {
             if (resp.success) {
-                if (resp.body.Count > 0) {
-                    cb(resp.body[0].id);
-                    return;
+                for (var _i = 0, _a = resp.body; _i < _a.length; _i++) {
+                    var result = _a[_i];
+                    if (result.name === name) {
+                        done(result.id);
+                        return;
+                    }
                 }
             }
-            cb(-1);
+            done(-1); // not found
         });
+    };
+    NodeDebugSession.prototype._log = function (message) {
+        if (NodeDebugSession.TRACE) {
+            var s = process.pid + ": " + message + '\r\n';
+            //console.error(s);
+            this.sendEvent(new vscode_debugadapter_1.OutputEvent(s, 'stderr'));
+        }
     };
     //---- private static ---------------------------------------------------------------
     NodeDebugSession.isJavaScript = function (path) {
@@ -1779,7 +1923,6 @@ var NodeDebugSession = (function (_super) {
         return s;
     };
     NodeDebugSession.TRACE = false;
-    NodeDebugSession.TRACE_INITIALISATION = false;
     NodeDebugSession.NODE = 'node';
     NodeDebugSession.DUMMY_THREAD_ID = 1;
     NodeDebugSession.DUMMY_THREAD_NAME = 'Node';
@@ -1787,6 +1930,7 @@ var NodeDebugSession = (function (_super) {
     NodeDebugSession.PROTO = '__proto__';
     NodeDebugSession.DEBUG_EXTENSION = 'debugExtension.js';
     NodeDebugSession.NODE_TERMINATION_POLL_INTERVAL = 3000;
+    NodeDebugSession.ATTACH_TIMEOUT = 10000;
     NodeDebugSession.NODE_SHEBANG_MATCHER = new RegExp('#! */usr/bin/env +node');
     // stop reasons
     NodeDebugSession.ENTRY_REASON = "entry";
@@ -1799,7 +1943,7 @@ var NodeDebugSession = (function (_super) {
     NodeDebugSession.SCOPE_NAMES = ["Global", "Local", "With", "Closure", "Catch", "Block", "Script"];
     NodeDebugSession.LARGE_DATASTRUCTURE_TIMEOUT = "<...>"; // "<large data structure timeout>";
     return NodeDebugSession;
-})(debugSession_1.DebugSession);
+})(vscode_debugadapter_1.DebugSession);
 exports.NodeDebugSession = NodeDebugSession;
 function endsWith(str, suffix) {
     return str.indexOf(suffix, str.length - suffix.length) !== -1;
@@ -1818,5 +1962,5 @@ function extendObject(objectCopy, object) {
     }
     return objectCopy;
 }
-debugSession_1.DebugSession.run(NodeDebugSession);
+vscode_debugadapter_1.DebugSession.run(NodeDebugSession);
 //# sourceMappingURL=nodeDebug.js.map

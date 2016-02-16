@@ -1,13 +1,14 @@
-/* --------------------------------------------------------------------------------------------
- * Copyright (c) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License. See License.txt in the project root for license information.
- * ------------------------------------------------------------------------------------------ */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
 'use strict';
 var path = require('path');
 var fs = require('fs');
 var electron = require('./utils/electron');
 var wireProtocol_1 = require('./utils/wireProtocol');
 var vscode_1 = require('vscode');
+var SalsaStatus = require('./utils/salsaStatus');
 var isWin = /^win/.test(process.platform);
 var isDarwin = /^darwin/.test(process.platform);
 var isLinux = /^linux/.test(process.platform);
@@ -64,6 +65,7 @@ var TypeScriptServiceClient = (function () {
         var _this = this;
         if (resendModels === void 0) { resendModels = false; }
         var modulePath = path.join(__dirname, '..', 'server', 'typescript', 'lib', 'tsserver.js');
+        var useSalsa = !!process.env['CODE_TSJS'] || !!process.env['VSCODE_TSJS'];
         if (this.tsdk) {
             if (path.isAbsolute(this.tsdk)) {
                 modulePath = path.join(this.tsdk, 'tsserver.js');
@@ -72,9 +74,29 @@ var TypeScriptServiceClient = (function () {
                 modulePath = path.join(vscode_1.workspace.rootPath, this.tsdk, 'tsserver.js');
             }
         }
+        else if (useSalsa) {
+            var candidate = path.join(vscode_1.workspace.rootPath, 'node_modules', 'typescript', 'lib', 'tsserver.js');
+            if (fs.existsSync(candidate)) {
+                modulePath = candidate;
+            }
+        }
         if (!fs.existsSync(modulePath)) {
             vscode_1.window.showErrorMessage("The path " + path.dirname(modulePath) + " doesn't point to a valid tsserver install. TypeScript language features will be disabled.");
             return;
+        }
+        if (useSalsa) {
+            var versionOK = this.isTypeScriptVersionOkForSalsa(modulePath);
+            var tooltip = modulePath;
+            var label;
+            if (!versionOK) {
+                label = '(Salsa !)';
+                tooltip = tooltip + " does not support Salsa!";
+            }
+            else {
+                label = '(Salsa)';
+                tooltip = tooltip + " does support Salsa.";
+            }
+            SalsaStatus.show(label, tooltip, !versionOK);
         }
         this.servicePromise = new Promise(function (resolve, reject) {
             try {
@@ -120,6 +142,31 @@ var TypeScriptServiceClient = (function () {
         if (resendModels) {
             this.host.populateService();
         }
+    };
+    TypeScriptServiceClient.prototype.isTypeScriptVersionOkForSalsa = function (serverPath) {
+        var p = serverPath.split(path.sep);
+        if (p.length <= 2) {
+            return true; // assume OK, cannot check
+        }
+        var p2 = p.slice(0, -2);
+        var modulePath = p2.join(path.sep);
+        var fileName = path.join(modulePath, 'package.json');
+        if (!fs.existsSync(fileName)) {
+            return true; // assume OK, cannot check
+        }
+        var contents = fs.readFileSync(fileName).toString();
+        var desc = null;
+        try {
+            desc = JSON.parse(contents);
+        }
+        catch (err) {
+            return true;
+        }
+        if (!desc.version) {
+            return true;
+        }
+        // just use a string compare, don't want to add a dependency on semver
+        return desc.version.indexOf('1.8') >= 0 || desc.version.indexOf('1.9') >= 0;
     };
     TypeScriptServiceClient.prototype.serviceExited = function (restart) {
         var _this = this;
@@ -244,7 +291,7 @@ var TypeScriptServiceClient = (function () {
                 var p = this.callbacks[response.request_seq];
                 if (p) {
                     if (TypeScriptServiceClient.Trace) {
-                        console.log('TypeScript Service: request ' + response.command + '(' + response.request_seq + ') took ' + (Date.now() - p.start) + 'ms. Success: ' + response.success);
+                        console.log('TypeScript Service: request ' + response.command + '(' + response.request_seq + ') took ' + (Date.now() - p.start) + 'ms. Success: ' + response.success + ((!response.success) ? ('. Message: ' + response.message) : ''));
                     }
                     delete this.callbacks[response.request_seq];
                     this.pendingResponses--;
@@ -273,7 +320,7 @@ var TypeScriptServiceClient = (function () {
             this.sendNextRequests();
         }
     };
-    TypeScriptServiceClient.Trace = false;
+    TypeScriptServiceClient.Trace = process.env.TSS_TRACE || false;
     return TypeScriptServiceClient;
 })();
 Object.defineProperty(exports, "__esModule", { value: true });

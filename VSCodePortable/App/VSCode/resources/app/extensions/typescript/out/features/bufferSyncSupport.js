@@ -1,39 +1,23 @@
-/* --------------------------------------------------------------------------------------------
- * Copyright (c) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License. See License.txt in the project root for license information.
- * ------------------------------------------------------------------------------------------ */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
 'use strict';
 var vscode_1 = require('vscode');
 var async_1 = require('../utils/async');
 var SyncedBuffer = (function () {
-    function SyncedBuffer(model, filepath, diagnosticRequestor, client) {
-        this.document = model;
+    function SyncedBuffer(document, filepath, diagnosticRequestor, client) {
+        this.document = document;
         this.filepath = filepath;
         this.diagnosticRequestor = diagnosticRequestor;
         this.client = client;
     }
     SyncedBuffer.prototype.open = function () {
         var args = {
-            file: this.filepath
+            file: this.filepath,
+            fileContent: this.document.getText()
         };
         this.client.execute('open', args, false);
-        // The last line never has a new line character at the end. So we use range.
-        // Sending a replace doesn't work if the buffer is newer then on disk and
-        // if changes are on the last line. In this case the tsserver has less characters
-        // which makes the tsserver bail since the range is invalid
-        /*
-        let lastLineRange = this.document.lineAt(this.document.lineCount - 1).range;
-        let text = this.document.getText();
-        let changeArgs: Proto.ChangeRequestArgs = {
-            file: this.filepath,
-            line: 1,
-            offset: 1,
-            endLine: lastLineRange.end.line + 1,
-            endOffset: lastLineRange.end.character + 1,
-            insertString: text
-        }
-        this.client.execute('change', changeArgs, false);
-        */
     };
     SyncedBuffer.prototype.close = function () {
         var args = {

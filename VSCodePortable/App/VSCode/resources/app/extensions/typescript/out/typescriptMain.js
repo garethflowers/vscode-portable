@@ -1,7 +1,7 @@
-/* --------------------------------------------------------------------------------------------
- * Copyright (c) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License. See License.txt in the project root for license information.
- * ------------------------------------------------------------------------------------------ */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
 /* --------------------------------------------------------------------------------------------
  * Includes code from typescript-sublime-plugin project, obtained from
  * https://github.com/Microsoft/TypeScript-Sublime-Plugin/blob/master/TypeScript%20Indent.tmPreferences
@@ -21,16 +21,27 @@ var formattingProvider_1 = require('./features/formattingProvider');
 var bufferSyncSupport_1 = require('./features/bufferSyncSupport');
 var completionItemProvider_1 = require('./features/completionItemProvider');
 var workspaceSymbolProvider_1 = require('./features/workspaceSymbolProvider');
+var SalsaStatus = require('./utils/salsaStatus');
 function activate(context) {
     var MODE_ID_TS = 'typescript';
     var MODE_ID_TSX = 'typescriptreact';
-    var MY_PLUGIN_ID = 'vs.language.typescript';
+    var MODE_ID_JS = 'javascript';
+    var MODE_ID_JSX = 'javascriptreact';
     var clientHost = new TypeScriptServiceClientHost();
     var client = clientHost.serviceClient;
+    context.subscriptions.push(vscode_1.commands.registerCommand('typescript.reloadProjects', function () {
+        clientHost.reloadProjects();
+    }));
+    vscode_1.window.onDidChangeActiveTextEditor(SalsaStatus.showHideStatus, null, context.subscriptions);
     // Register the supports for both TS and TSX so that we can have separate grammars but share the mode
     client.onReady().then(function () {
         registerSupports(MODE_ID_TS, clientHost, client);
         registerSupports(MODE_ID_TSX, clientHost, client);
+        var useSalsa = !!process.env['CODE_TSJS'] || !!process.env['VSCODE_TSJS'];
+        if (useSalsa) {
+            registerSupports(MODE_ID_JS, clientHost, client);
+            registerSupports(MODE_ID_JSX, clientHost, client);
+        }
     }, function () {
         // Nothing to do here. The client did show a message;
     });
@@ -42,7 +53,7 @@ function registerSupports(modeID, host, client) {
     vscode_1.languages.registerDocumentHighlightProvider(modeID, new documentHighlightProvider_1.default(client));
     vscode_1.languages.registerReferenceProvider(modeID, new referenceProvider_1.default(client));
     vscode_1.languages.registerDocumentSymbolProvider(modeID, new documentSymbolProvider_1.default(client));
-    vscode_1.languages.registerSignatureHelpProvider(modeID, new signatureHelpProvider_1.default(client), '(', ';');
+    vscode_1.languages.registerSignatureHelpProvider(modeID, new signatureHelpProvider_1.default(client), '(', ',');
     vscode_1.languages.registerRenameProvider(modeID, new renameProvider_1.default(client));
     vscode_1.languages.registerDocumentRangeFormattingEditProvider(modeID, new formattingProvider_1.default(client));
     vscode_1.languages.registerOnTypeFormattingEditProvider(modeID, new formattingProvider_1.default(client), ';', '}', '\n');
@@ -78,7 +89,7 @@ function registerSupports(modeID, host, client) {
             },
             {
                 // e.g.  * ...|
-                beforeText: /^(\t|(\ \ ))*\ \*\ ([^\*]|\*(?!\/))*$/,
+                beforeText: /^(\t|(\ \ ))*\ \*(\ ([^\*]|\*(?!\/))*)?$/,
                 action: { indentAction: vscode_1.IndentAction.None, appendText: '* ' }
             },
             {
@@ -101,7 +112,8 @@ function registerSupports(modeID, host, client) {
                 { open: '[', close: ']' },
                 { open: '(', close: ')' },
                 { open: '"', close: '"', notIn: ['string'] },
-                { open: '\'', close: '\'', notIn: ['string', 'comment'] }
+                { open: '\'', close: '\'', notIn: ['string', 'comment'] },
+                { open: '`', close: '`', notIn: ['string', 'comment'] }
             ]
         }
     });
@@ -127,7 +139,9 @@ var TypeScriptServiceClientHost = (function () {
             _this.triggerAllDiagnostics();
         };
         var handleProjectChange = function () {
-            _this.triggerAllDiagnostics();
+            setTimeout(function () {
+                _this.triggerAllDiagnostics();
+            }, 1500);
         };
         var watcher = vscode_1.workspace.createFileSystemWatcher('**/tsconfig.json');
         watcher.onDidCreate(handleProjectCreateOrDelete);
@@ -143,6 +157,10 @@ var TypeScriptServiceClientHost = (function () {
         enumerable: true,
         configurable: true
     });
+    TypeScriptServiceClientHost.prototype.reloadProjects = function () {
+        this.client.execute('reloadProjects', null, false);
+        this.triggerAllDiagnostics();
+    };
     TypeScriptServiceClientHost.prototype.addBufferSyncSupport = function (support) {
         this.bufferSyncSupports.push(support);
     };

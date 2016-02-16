@@ -11,13 +11,15 @@
 
 		<!-- Helpers -->
 		<script type="text/javascript">
+			var fs = require('fs');
 			var path = require('path');
-			var remote = require('remote');
-			var ipc = require('ipc');
+			var electron = require('electron');
+			var remote = electron.remote;
+			var ipc = electron.ipcRenderer;
 
 			function onError(error, enableDeveloperTools) {
 				if (enableDeveloperTools) {
-					remote.getCurrentWindow().openDevTools();
+					remote.getCurrentWindow().webContents.openDevTools();
 					remote.getCurrentWindow().show();
 				}
 
@@ -95,10 +97,39 @@
 
 				process.on('uncaughtException', function(error) { onError(error, enableDeveloperTools) });
 			}
+
+			function getNlsPluginConfiguration(configuration) {
+				var locale = configuration.locale;
+				if (locale === 'pseudo') {
+					return { availableLanguages: {}, pseudo: true }
+				}
+				if (!configuration.isBuilt) {
+					return { availableLanguages: {} };
+				}
+				// We have a built version so we have extracted nls file. Try to find
+				// the right file to use.
+				locale = locale || window.navigator.language;
+				while (locale) {
+					var candidate = path.join(__dirname, '..', 'workbench.main.nls.') + locale + '.js';
+					if (fs.existsSync(candidate)) {
+						return { availableLanguages: { '*': locale } };
+					} else {
+						var index = locale.lastIndexOf('-');
+						if (index > 0) {
+							locale = locale.substring(0, index);
+						} else {
+							locale = null;
+						}
+					}
+				}
+				return { availableLanguages: {} };
+			}
 		</script>
 
 		<!-- Startup Code -->
 		<script type="text/javascript">
+			var webFrame = require('electron').webFrame;
+
 			var mainStarted = false;
 			var args = parseURLQueryArgs();
 			var configuration = JSON.parse(args['config']);
@@ -108,28 +139,51 @@
 
 			registerListeners(enableDeveloperTools);
 
-			// disable pinch zoom
-			require('web-frame').setZoomLevelLimits(1, 1);
+			// We get the global settings through a remote call from the browser
+			// because its value can change dynamically.
+			var globalSettings;
+			var globalSettingsValue = remote.getGlobal('globalSettingsValue');
+			if (globalSettingsValue) {
+				globalSettings = JSON.parse(globalSettingsValue);
+			} else {
+				globalSettings = {
+					settings: {},
+					keybindings: []
+				};
+			}
 
+			// disable pinch zoom & apply zoom level early to avoid glitches
+			var windowConfiguration = globalSettings.settings && globalSettings.settings.window;
+			webFrame.setZoomLevelLimits(1, 1);
+			if (windowConfiguration && typeof windowConfiguration.zoomLevel === 'number' && windowConfiguration.zoomLevel !== 0) {
+				webFrame.setZoomLevel(windowConfiguration.zoomLevel);
+			}
+
+			// Load the loader and start loading the workbench
 			var rootUrl = uriFromPath(configuration.appRoot) + '/out';
+			// In the bundled version the nls plugin is packaged with the loader so the NLS Plugins
+			// loads as soon as the loader loads. To be able to have pseudo trnastation
 			createScript(rootUrl + '/vs/loader.js', function() {
+				var nlsConfig = getNlsPluginConfiguration(configuration);
 				require.config({
 					baseUrl: rootUrl,
-					'vs/nls': {
-						availableLanguages: {}
-					},
+					'vs/nls': nlsConfig,
 					recordStats: configuration.enablePerformance
 				});
+				if (nlsConfig.pseudo) {
+					require(['vs/nls'], function(nlsPlugin) {
+						nlsPlugin.setPseudoTranslation(nlsConfig.pseudo);
+					});
+				}
 
 				var hasWorkspaceContext = configuration.workspacePath;
 
 				window.MonacoEnvironment = {
-					'platform': remote.process.platform,
 					'enableTasks': hasWorkspaceContext,
 					'enableJavaScriptRewriting': true,
 					'enableSendASmile' : !!configuration.sendASmile,
 					'enableTypeScriptServiceMode': true || !process.env['VSCODE_TSWORKER'],
-					'enableTypeScriptServiceModeForJS': !!process.env['CODE_TSJS']
+					'enableTypeScriptServiceModeForJS': !!process.env['CODE_TSJS'] || !!process.env['VSCODE_TSJS']
 				};
 
 				var programStart = remote.getGlobal('programStart');
@@ -153,19 +207,6 @@
 				], function() {
 					timers.afterLoad = new Date();
 
-					// We get the global settings through a remote call from the browser
-					// because its value can change dynamically.
-					var globalSettings;
-					var globalSettingsValue = remote.getGlobal('globalSettingsValue');
-					if (globalSettingsValue) {
-						globalSettings = JSON.parse(globalSettingsValue);
-					} else {
-						globalSettings = {
-							settings: {},
-							keybindings: []
-						};
-					}
-
 					var main = require('vs/workbench/electron-browser/main');
 					main.startup(configuration, globalSettings).then(function() {
 						mainStarted = true;
@@ -179,10 +220,9 @@
 		<script>
 			(function() {
 				try {
-					var defaultTheme = 'vs-dark';
 					var theme = window.localStorage.getItem('storage://global/workbench.theme');
-					if (theme && theme !== defaultTheme) {
-						window.document.body.className = 'monaco-shell'; // remove the default theme bit unless we are in default theme
+					if (theme && theme.indexOf('vs-dark') < 0) {
+						window.document.body.className = 'monaco-shell'; // remove the dark theme class if we are on a light theme
 					}
 				} catch (error) {
 					console.error(error);
