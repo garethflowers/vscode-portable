@@ -13,7 +13,7 @@ Visual Studio Code Portable is the Visual Studio Code text editor packaged with 
 
 ## System Requirements
 
-* Microsoft Windows 8, 7, Vista or XP.
+* Microsoft Windows 7, 8.0, 8.1 or 10 (x86/x64).
 * [PortableApps.com Platform](http://portableapps.com/download) (Optional)
 
 ## Credits
