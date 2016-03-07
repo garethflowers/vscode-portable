@@ -35,7 +35,7 @@ var Kind = (function () {
     Kind.let = 'let';
     Kind.warning = 'warning';
     return Kind;
-})();
+}());
 exports.Kind = Kind;
 var KindModifier = (function () {
     function KindModifier() {
@@ -48,5 +48,5 @@ var KindModifier = (function () {
     KindModifier.ambient = 'declare';
     KindModifier.static = 'static';
     return KindModifier;
-})();
+}());
 exports.KindModifier = KindModifier;

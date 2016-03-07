@@ -43,6 +43,6 @@ var TypeScriptRenameProvider = (function () {
         });
     };
     return TypeScriptRenameProvider;
-})();
+}());
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = TypeScriptRenameProvider;

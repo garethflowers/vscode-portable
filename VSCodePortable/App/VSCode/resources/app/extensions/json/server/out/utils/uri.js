@@ -172,7 +172,6 @@ var URI = (function () {
             ret._query = match[7] || ret._query;
             ret._fragment = match[9] || ret._fragment;
         }
-        ;
         URI._validate(ret);
         return ret;
     };
@@ -304,7 +303,7 @@ var URI = (function () {
     URI._driveLetterPath = /^\/[a-zA-z]:/;
     URI._driveLetter = /^[a-zA-z]:/;
     return URI;
-})();
+}());
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = URI;
 //# sourceMappingURL=uri.js.map

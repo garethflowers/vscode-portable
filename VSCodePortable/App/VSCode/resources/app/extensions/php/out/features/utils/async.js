@@ -8,6 +8,7 @@ var __extends = (this && this.__extends) || function (d, b) {
     d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 };
 define(["require", "exports"], function (require, exports) {
+    "use strict";
     /**
      * A helper to prevent accumulation of sequential async tasks.
      *
@@ -65,7 +66,7 @@ define(["require", "exports"], function (require, exports) {
             });
         };
         return Throttler;
-    })();
+    }());
     exports.Throttler = Throttler;
     /**
      * A helper to delay execution of a task that is being requested often.
@@ -136,7 +137,7 @@ define(["require", "exports"], function (require, exports) {
             }
         };
         return Delayer;
-    })();
+    }());
     exports.Delayer = Delayer;
     /**
      * A helper to delay execution of a task that is being requested often, while
@@ -156,7 +157,7 @@ define(["require", "exports"], function (require, exports) {
             return _super.prototype.trigger.call(this, function () { return _this.throttler.queue(promiseFactory); }, delay);
         };
         return ThrottledDelayer;
-    })(Delayer);
+    }(Delayer));
     exports.ThrottledDelayer = ThrottledDelayer;
 });
 //# sourceMappingURL=async.js.map

@@ -47,7 +47,7 @@ var SyncedBuffer = (function () {
         this.diagnosticRequestor.requestDiagnostic(filePath);
     };
     return SyncedBuffer;
-})();
+}());
 var BufferSyncSupport = (function () {
     function BufferSyncSupport(client, modeId) {
         this.disposables = [];
@@ -152,6 +152,6 @@ var BufferSyncSupport = (function () {
         this.pendingDiagnostics = Object.create(null);
     };
     return BufferSyncSupport;
-})();
+}());
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = BufferSyncSupport;

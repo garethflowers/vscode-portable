@@ -22,7 +22,7 @@ function activate(context) {
     // The server is implemented in node
     var serverModule = context.asAbsolutePath(path.join('server', 'out', 'server.js'));
     // The debug options for the server
-    var debugOptions = { execArgv: ["--nolazy", "--debug=6004"] };
+    var debugOptions = { execArgv: ['--nolazy', '--debug=6004'] };
     // If the extension is launch in debug mode the debug server options are use
     // Otherwise the run options are used
     var serverOptions = {
@@ -58,6 +58,19 @@ function activate(context) {
     // Push the disposable to the context's subscriptions so that the
     // client can be deactivated on extension deactivation
     context.subscriptions.push(disposable);
+    vscode_1.languages.setLanguageConfiguration('json', {
+        wordPattern: /(-?\d*\.\d\w*)|([^\[\{\]\}\:\"\,\s]+)/g,
+        __characterPairSupport: {
+            autoClosingPairs: [
+                { open: '{', close: '}' },
+                { open: '[', close: ']' },
+                { open: '(', close: ')' },
+                { open: '"', close: '"', notIn: ['string'] },
+                { open: '\'', close: '\'', notIn: ['string', 'comment'] },
+                { open: '`', close: '`', notIn: ['string', 'comment'] }
+            ]
+        }
+    });
 }
 exports.activate = activate;
 function getSchemaAssociation(context) {

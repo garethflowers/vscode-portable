@@ -2,8 +2,8 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-'use strict';
 define(["require", "exports", 'vscode', './phpGlobals'], function (require, exports, vscode_1, phpGlobals) {
+    'use strict';
     var PHPCompletionItemProvider = (function () {
         function PHPCompletionItemProvider() {
             this.triggerCharacters = ['.', ':', '$'];
@@ -77,7 +77,7 @@ define(["require", "exports", 'vscode', './phpGlobals'], function (require, expo
             return Promise.resolve(result);
         };
         return PHPCompletionItemProvider;
-    })();
+    }());
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.default = PHPCompletionItemProvider;
 });

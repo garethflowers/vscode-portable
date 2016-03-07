@@ -51,7 +51,7 @@ var MyCompletionItem = (function (_super) {
         return vscode_1.CompletionItemKind.Property;
     };
     return MyCompletionItem;
-})(vscode_1.CompletionItem);
+}(vscode_1.CompletionItem));
 var TypeScriptCompletionItemProvider = (function () {
     function TypeScriptCompletionItemProvider(client) {
         this.triggerCharacters = ['.'];
@@ -122,7 +122,7 @@ var TypeScriptCompletionItemProvider = (function () {
                 }
                 if (detail && _this.config.useCodeSnippetsOnMethodSuggest && item.kind === vscode_1.CompletionItemKind.Function) {
                     var codeSnippet = detail.name;
-                    var suggestionArgumentNames;
+                    var suggestionArgumentNames = void 0;
                     suggestionArgumentNames = detail.displayParts
                         .filter(function (part) { return part.kind === 'parameterName'; })
                         .map(function (part) { return ("{{" + part.text + "}}"); });
@@ -141,6 +141,6 @@ var TypeScriptCompletionItemProvider = (function () {
         }
     };
     return TypeScriptCompletionItemProvider;
-})();
+}());
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = TypeScriptCompletionItemProvider;

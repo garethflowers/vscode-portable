@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 define(["require", "exports"], function (require, exports) {
+    "use strict";
     exports.globalfunctions = {
         password_get_info: {
             description: 'Returns information about the given hash. (5.5 only)',

@@ -35,7 +35,7 @@ var FilePatternAssociation = (function () {
         return this.combinedSchema;
     };
     return FilePatternAssociation;
-})();
+}());
 var SchemaHandle = (function () {
     function SchemaHandle(service, url, unresolvedSchemaContent) {
         this.service = service;
@@ -64,7 +64,7 @@ var SchemaHandle = (function () {
         this.unresolvedSchema = null;
     };
     return SchemaHandle;
-})();
+}());
 var UnresolvedSchema = (function () {
     function UnresolvedSchema(schema, errors) {
         if (errors === void 0) { errors = []; }
@@ -72,7 +72,7 @@ var UnresolvedSchema = (function () {
         this.errors = errors;
     }
     return UnresolvedSchema;
-})();
+}());
 exports.UnresolvedSchema = UnresolvedSchema;
 var ResolvedSchema = (function () {
     function ResolvedSchema(schema, errors) {
@@ -123,7 +123,7 @@ var ResolvedSchema = (function () {
         return null;
     };
     return ResolvedSchema;
-})();
+}());
 exports.ResolvedSchema = ResolvedSchema;
 var JSONSchemaService = (function () {
     function JSONSchemaService(requestService, contextService, telemetryService) {
@@ -367,7 +367,7 @@ var JSONSchemaService = (function () {
         }
     };
     return JSONSchemaService;
-})();
+}());
 exports.JSONSchemaService = JSONSchemaService;
 function toDisplayString(url) {
     try {

@@ -23,8 +23,8 @@ var TypeScriptWorkspaceSymbolProvider = (function () {
         // one that is typescript'ish
         var uri;
         var documents = vscode_1.workspace.textDocuments;
-        for (var _i = 0; _i < documents.length; _i++) {
-            var document = documents[_i];
+        for (var _i = 0, documents_1 = documents; _i < documents_1.length; _i++) {
+            var document = documents_1[_i];
             if (document.languageId === this.modeId) {
                 uri = document.uri;
                 break;
@@ -60,6 +60,6 @@ var TypeScriptWorkspaceSymbolProvider = (function () {
         });
     };
     return TypeScriptWorkspaceSymbolProvider;
-})();
+}());
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = TypeScriptWorkspaceSymbolProvider;

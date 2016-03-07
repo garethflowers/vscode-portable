@@ -2,4 +2,5 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-!function(){"use strict";var e=self.MonacoEnvironment,r=e&&e.baseUrl?e.baseUrl:"../../../";importScripts(r+"vs/loader.js"),require.config({baseUrl:r,catchError:!0});var s=[];self.onmessage=function(e){return s.push(e)},require(["vs/base/common/worker/workerServer"],function(e){var r=e.create(function(e){self.postMessage(e)},null);for(self.onmessage=function(e){return r.onmessage(e.data)};s.length>0;)self.onmessage(s.shift())})}();
+!function(){"use strict";var e=self.MonacoEnvironment,s=e&&e.baseUrl?e.baseUrl:"../../../";importScripts(s+"vs/loader.js"),require.config({baseUrl:s,catchError:!0});var n=function(e){require([e],function(e){var s=e.create(function(e){self.postMessage(e)},null);for(self.onmessage=function(e){return s.onmessage(e.data)};o.length>0;)self.onmessage(o.shift())})},r=!0,o=[];self.onmessage=function(e){return r?(r=!1,void n(e.data)):void o.push(e)}}();
+//# sourceMappingURL=https://ticino.blob.core.windows.net/sourcemaps/5b5f4db87c10345b9d5c8d0bed745bcad4533135/vs\base\worker\workerMain.js.map

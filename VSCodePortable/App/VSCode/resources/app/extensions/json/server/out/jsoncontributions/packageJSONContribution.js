@@ -36,7 +36,7 @@ var PackageJSONContribution = (function () {
     };
     PackageJSONContribution.prototype.collectPropertySuggestions = function (resource, location, currentWord, addValue, isLast, result) {
         if (this.isPackageJSONFile(resource) && (location.matches(['dependencies']) || location.matches(['devDependencies']) || location.matches(['optionalDependencies']) || location.matches(['peerDependencies']))) {
-            var queryUrl;
+            var queryUrl = void 0;
             if (currentWord.length > 0) {
                 queryUrl = 'https://skimdb.npmjs.com/registry/_design/app/_view/browseAll?group_level=1&limit=' + LIMIT + '&start_key=%5B%22' + encodeURIComponent(currentWord) + '%22%5D&end_key=%5B%22' + encodeURIComponent(currentWord + 'z') + '%22,%7B%7D%5D';
                 return this.requestService({
@@ -124,8 +124,8 @@ var PackageJSONContribution = (function () {
     PackageJSONContribution.prototype.getInfoContribution = function (resource, location) {
         if (this.isPackageJSONFile(resource) && (location.matches(['dependencies', '*']) || location.matches(['devDependencies', '*']) || location.matches(['optionalDependencies', '*']) || location.matches(['peerDependencies', '*']))) {
             var pack = location.getSegments()[location.getSegments().length - 1];
-            var htmlContent = [];
-            htmlContent.push(nls.localize('json.npm.package.hover', '{0}', pack));
+            var htmlContent_1 = [];
+            htmlContent_1.push(nls.localize('json.npm.package.hover', '{0}', pack));
             var queryUrl = 'http://registry.npmjs.org/' + encodeURIComponent(pack) + '/latest';
             return this.requestService({
                 url: queryUrl
@@ -134,23 +134,23 @@ var PackageJSONContribution = (function () {
                     var obj = JSON.parse(success.responseText);
                     if (obj) {
                         if (obj.description) {
-                            htmlContent.push(obj.description);
+                            htmlContent_1.push(obj.description);
                         }
                         if (obj.version) {
-                            htmlContent.push(nls.localize('json.npm.version.hover', 'Latest version: {0}', obj.version));
+                            htmlContent_1.push(nls.localize('json.npm.version.hover', 'Latest version: {0}', obj.version));
                         }
                     }
                 }
                 catch (e) {
                 }
-                return htmlContent;
+                return htmlContent_1;
             }, function (error) {
-                return htmlContent;
+                return htmlContent_1;
             });
         }
         return null;
     };
     return PackageJSONContribution;
-})();
+}());
 exports.PackageJSONContribution = PackageJSONContribution;
 //# sourceMappingURL=packageJSONContribution.js.map

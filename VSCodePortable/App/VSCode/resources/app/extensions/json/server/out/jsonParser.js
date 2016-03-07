@@ -82,7 +82,7 @@ var ASTNode = (function () {
             if (schema.type.indexOf(this.type) === -1) {
                 validationResult.warnings.push({
                     location: { start: this.start, end: this.end },
-                    message: nls.localize('typeArrayMismatchWarning', 'Incorrect type. Expected one of {0}', schema.type.join())
+                    message: nls.localize('typeArrayMismatchWarning', 'Incorrect type. Expected one of {0}', schema.type.join(', '))
                 });
             }
         }
@@ -188,7 +188,7 @@ var ASTNode = (function () {
         }
     };
     return ASTNode;
-})();
+}());
 exports.ASTNode = ASTNode;
 var NullASTNode = (function (_super) {
     __extends(NullASTNode, _super);
@@ -199,7 +199,7 @@ var NullASTNode = (function (_super) {
         return null;
     };
     return NullASTNode;
-})(ASTNode);
+}(ASTNode));
 exports.NullASTNode = NullASTNode;
 var BooleanASTNode = (function (_super) {
     __extends(BooleanASTNode, _super);
@@ -211,7 +211,7 @@ var BooleanASTNode = (function (_super) {
         return this.value;
     };
     return BooleanASTNode;
-})(ASTNode);
+}(ASTNode));
 exports.BooleanASTNode = BooleanASTNode;
 var ArrayASTNode = (function (_super) {
     __extends(ArrayASTNode, _super);
@@ -289,11 +289,11 @@ var ArrayASTNode = (function (_super) {
             });
         }
         if (schema.uniqueItems === true) {
-            var values = this.items.map(function (node) {
+            var values_1 = this.items.map(function (node) {
                 return node.getValue();
             });
-            var duplicates = values.some(function (value, index) {
-                return index !== values.lastIndexOf(value);
+            var duplicates = values_1.some(function (value, index) {
+                return index !== values_1.lastIndexOf(value);
             });
             if (duplicates) {
                 validationResult.warnings.push({
@@ -304,7 +304,7 @@ var ArrayASTNode = (function (_super) {
         }
     };
     return ArrayASTNode;
-})(ASTNode);
+}(ASTNode));
 exports.ArrayASTNode = ArrayASTNode;
 var NumberASTNode = (function (_super) {
     __extends(NumberASTNode, _super);
@@ -370,14 +370,14 @@ var NumberASTNode = (function (_super) {
         }
     };
     return NumberASTNode;
-})(ASTNode);
+}(ASTNode));
 exports.NumberASTNode = NumberASTNode;
 var StringASTNode = (function (_super) {
     __extends(StringASTNode, _super);
     function StringASTNode(parent, name, isKey, start, end) {
+        _super.call(this, parent, 'string', name, start, end);
         this.isKey = isKey;
         this.value = '';
-        _super.call(this, parent, 'string', name, start, end);
     }
     StringASTNode.prototype.getValue = function () {
         return this.value;
@@ -411,7 +411,7 @@ var StringASTNode = (function (_super) {
         }
     };
     return StringASTNode;
-})(ASTNode);
+}(ASTNode));
 exports.StringASTNode = StringASTNode;
 var PropertyASTNode = (function (_super) {
     __extends(PropertyASTNode, _super);
@@ -442,7 +442,7 @@ var PropertyASTNode = (function (_super) {
         }
     };
     return PropertyASTNode;
-})(ASTNode);
+}(ASTNode));
 exports.PropertyASTNode = PropertyASTNode;
 var ObjectASTNode = (function (_super) {
     __extends(ObjectASTNode, _super);
@@ -618,14 +618,14 @@ var ObjectASTNode = (function (_super) {
         }
     };
     return ObjectASTNode;
-})(ASTNode);
+}(ASTNode));
 exports.ObjectASTNode = ObjectASTNode;
 var JSONDocumentConfig = (function () {
     function JSONDocumentConfig() {
         this.ignoreDanglingComma = false;
     }
     return JSONDocumentConfig;
-})();
+}());
 exports.JSONDocumentConfig = JSONDocumentConfig;
 var ValidationResult = (function () {
     function ValidationResult() {
@@ -669,7 +669,7 @@ var ValidationResult = (function () {
         return this.propertiesMatches - other.propertiesMatches;
     };
     return ValidationResult;
-})();
+}());
 exports.ValidationResult = ValidationResult;
 var JSONDocument = (function () {
     function JSONDocument(config) {
@@ -709,7 +709,7 @@ var JSONDocument = (function () {
         }
     };
     return JSONDocument;
-})();
+}());
 exports.JSONDocument = JSONDocument;
 function parse(text, config) {
     if (config === void 0) { config = new JSONDocumentConfig(); }

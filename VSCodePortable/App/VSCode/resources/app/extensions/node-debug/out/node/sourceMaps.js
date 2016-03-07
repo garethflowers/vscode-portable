@@ -7,11 +7,17 @@ var FS = require('fs');
 var source_map_1 = require('source-map');
 var PathUtils = require('./pathUtilities');
 var util = require('../../node_modules/source-map/lib/util.js');
+(function (Bias) {
+    Bias[Bias["GREATEST_LOWER_BOUND"] = 1] = "GREATEST_LOWER_BOUND";
+    Bias[Bias["LEAST_UPPER_BOUND"] = 2] = "LEAST_UPPER_BOUND";
+})(exports.Bias || (exports.Bias = {}));
+var Bias = exports.Bias;
 var SourceMaps = (function () {
-    function SourceMaps(generatedCodeDirectory) {
+    function SourceMaps(session, generatedCodeDirectory) {
         this._allSourceMaps = {}; // map file path -> SourceMap
         this._generatedToSourceMaps = {}; // generated file -> SourceMap
         this._sourceToGeneratedMaps = {}; // source file -> SourceMap
+        this._session = session;
         this._generatedCodeDirectory = generatedCodeDirectory;
     }
     SourceMaps.prototype.MapPathFromSource = function (pathToSource) {
@@ -20,28 +26,33 @@ var SourceMaps = (function () {
             return map.generatedPath();
         return null;
     };
-    SourceMaps.prototype.MapFromSource = function (pathToSource, line, column) {
+    SourceMaps.prototype.MapFromSource = function (pathToSource, line, column, bias) {
         var map = this._findSourceToGeneratedMapping(pathToSource);
         if (map) {
             line += 1; // source map impl is 1 based
-            var mr = map.generatedPositionFor(pathToSource, line, column);
+            var mr = map.generatedPositionFor(pathToSource, line, column, bias);
             if (mr && typeof mr.line === 'number') {
-                if (SourceMaps.TRACE)
-                    console.error(Path.basename(pathToSource) + " " + line + ":" + column + " -> " + mr.line + ":" + mr.column);
-                return { path: map.generatedPath(), line: mr.line - 1, column: mr.column };
+                return {
+                    path: map.generatedPath(),
+                    line: mr.line - 1,
+                    column: mr.column
+                };
             }
         }
         return null;
     };
-    SourceMaps.prototype.MapToSource = function (pathToGenerated, line, column) {
+    SourceMaps.prototype.MapToSource = function (pathToGenerated, line, column, bias) {
         var map = this._findGeneratedToSourceMapping(pathToGenerated);
         if (map) {
             line += 1; // source map impl is 1 based
-            var mr = map.originalPositionFor(line, column);
+            var mr = map.originalPositionFor(line, column, bias);
             if (mr && mr.source) {
-                if (SourceMaps.TRACE)
-                    console.error(Path.basename(pathToGenerated) + " " + line + ":" + column + " -> " + mr.line + ":" + mr.column);
-                return { path: mr.source, content: mr.content, line: mr.line - 1, column: mr.column };
+                return {
+                    path: mr.source,
+                    content: mr.content,
+                    line: mr.line - 1,
+                    column: mr.column
+                };
             }
         }
         return null;
@@ -80,6 +91,7 @@ var SourceMaps = (function () {
                     var map_path = Path.join(this._generatedCodeDirectory, map_name);
                     var m = this._loadSourceMap(map_path);
                     if (m && m.doesOriginateFrom(pathToSource)) {
+                        this._log("_findSourceToGeneratedMapping: found source map for source " + pathToSource + " in outDir");
                         this._sourceToGeneratedMaps[pathToSource] = m;
                         return m;
                     }
@@ -91,7 +103,7 @@ var SourceMaps = (function () {
         // no map found
         var pathToGenerated = pathToSource;
         var ext = Path.extname(pathToSource);
-        if (ext !== 'js') {
+        if (ext !== '.js') {
             // use heuristic: change extension to ".js" and find a map for it
             var pos = pathToSource.lastIndexOf('.');
             if (pos >= 0) {
@@ -149,19 +161,20 @@ var SourceMaps = (function () {
         var uri = this._findSourceMapUrlInFile(pathToGenerated);
         if (uri) {
             // if uri is data url source map is inlined in generated file
-            if (uri.indexOf("data:application/json;base64,") >= 0) {
-                var pos = uri.indexOf(',');
+            if (uri.indexOf("data:application/json") >= 0) {
+                var pos = uri.lastIndexOf(',');
                 if (pos > 0) {
                     var data = uri.substr(pos + 1);
                     try {
                         var buffer = new Buffer(data, 'base64');
                         var json = buffer.toString();
                         if (json) {
+                            this._log("_findGeneratedToSourceMapping: successfully read inlined source map in '" + pathToGenerated + "'");
                             return this._registerSourceMap(new SourceMap(pathToGenerated, pathToGenerated, json));
                         }
                     }
                     catch (e) {
-                        console.error("_findGeneratedToSourceMapping: exception while processing data url (" + e + ")");
+                        this._log("_findGeneratedToSourceMapping: exception while processing data url '" + e + "'");
                     }
                 }
             }
@@ -198,6 +211,7 @@ var SourceMaps = (function () {
                 var matches = SourceMaps.SOURCE_MAPPING_MATCHER.exec(line);
                 if (matches && matches.length === 2) {
                     var uri = matches[1].trim();
+                    this._log("_findSourceMapUrlInFile: source map url at end of generated file '" + pathToGenerated + "''");
                     return uri;
                 }
             }
@@ -220,10 +234,11 @@ var SourceMaps = (function () {
             var map = new SourceMap(mp, generatedPath, contents);
             this._allSourceMaps[map_path] = map;
             this._registerSourceMap(map);
+            this._log("_loadSourceMap: successfully loaded source map '" + map_path + "'");
             return map;
         }
         catch (e) {
-            console.error("_loadSourceMap: {e}");
+            this._log("_loadSourceMap: loading source map '" + map_path + "' failed with exception: " + e);
         }
         return null;
     };
@@ -234,16 +249,13 @@ var SourceMaps = (function () {
         }
         return map;
     };
-    SourceMaps.TRACE = false;
+    SourceMaps.prototype._log = function (message) {
+        this._session.log('sm', message);
+    };
     SourceMaps.SOURCE_MAPPING_MATCHER = new RegExp("//[#@] ?sourceMappingURL=(.+)$");
     return SourceMaps;
 })();
 exports.SourceMaps = SourceMaps;
-var Bias;
-(function (Bias) {
-    Bias[Bias["GREATEST_LOWER_BOUND"] = 1] = "GREATEST_LOWER_BOUND";
-    Bias[Bias["LEAST_UPPER_BOUND"] = 2] = "LEAST_UPPER_BOUND";
-})(Bias || (Bias = {}));
 var SourceMap = (function () {
     function SourceMap(mapPath, generatedPath, json) {
         var _this = this;
@@ -351,14 +363,13 @@ var SourceMap = (function () {
      * Returns null if sourcemap is invalid.
      */
     SourceMap.prototype.originalPositionFor = function (line, column, bias) {
-        if (bias === void 0) { bias = Bias.LEAST_UPPER_BOUND; }
         if (!this._smc) {
             return null;
         }
         var needle = {
             line: line,
             column: column,
-            bias: bias
+            bias: bias || Bias.LEAST_UPPER_BOUND
         };
         var mp = this._smc.originalPositionFor(needle);
         if (mp.source) {
@@ -381,7 +392,6 @@ var SourceMap = (function () {
      * Returns null if sourcemap is invalid.
      */
     SourceMap.prototype.generatedPositionFor = function (absPath, line, column, bias) {
-        if (bias === void 0) { bias = Bias.LEAST_UPPER_BOUND; }
         if (!this._smc) {
             return null;
         }
@@ -392,7 +402,7 @@ var SourceMap = (function () {
                 source: source,
                 line: line,
                 column: column,
-                bias: bias
+                bias: bias || Bias.LEAST_UPPER_BOUND
             };
             return this._smc.generatedPositionFor(needle);
         }

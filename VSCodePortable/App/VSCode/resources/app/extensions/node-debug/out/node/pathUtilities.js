@@ -42,6 +42,17 @@ function makeRelative(target, path) {
 }
 exports.makeRelative = makeRelative;
 /**
+ * Returns a path with a lower case drive letter.
+ */
+function normalizeDriveLetter(path) {
+    var regex = /^([A-Z])(\:[\\\/].*)$/;
+    if (regex.test(path)) {
+        path = path.replace(regex, function (s, s1, s2) { return s1.toLowerCase() + s2; });
+    }
+    return path;
+}
+exports.normalizeDriveLetter = normalizeDriveLetter;
+/**
  * Given an absolute, normalized, and existing file path 'realPath' returns the exact path that the file has on disk.
  * On a case insensitive file system, the returned path might differ from the original path by character casing.
  * On a case sensitive file system, the returned path will always be identical to the original path.

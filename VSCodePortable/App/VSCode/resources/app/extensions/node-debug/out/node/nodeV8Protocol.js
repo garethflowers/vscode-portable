@@ -76,8 +76,36 @@ var NodeV8Protocol = (function (_super) {
         }
     };
     NodeV8Protocol.prototype.command = function (command, args, cb) {
+        this._command(command, args, NodeV8Protocol.TIMEOUT, cb);
+    };
+    NodeV8Protocol.prototype.command2 = function (command, args, timeout) {
         var _this = this;
-        var timeout = NodeV8Protocol.TIMEOUT;
+        if (timeout === void 0) { timeout = NodeV8Protocol.TIMEOUT; }
+        return new Promise(function (completeDispatch, errorDispatch) {
+            _this._command(command, args, timeout, function (result) {
+                if (result.success) {
+                    completeDispatch(result);
+                }
+                else {
+                    errorDispatch(result);
+                }
+            });
+        });
+    };
+    NodeV8Protocol.prototype.sendEvent = function (event) {
+        this.send('event', event);
+    };
+    NodeV8Protocol.prototype.sendResponse = function (response) {
+        if (response.seq > 0) {
+            console.error('attempt to send more than one response for command {0}', response.command);
+        }
+        else {
+            this.send('response', response);
+        }
+    };
+    // ---- private ------------------------------------------------------------
+    NodeV8Protocol.prototype._command = function (command, args, timeout, cb) {
+        var _this = this;
         var request = {
             command: command
         };
@@ -105,32 +133,6 @@ var NodeV8Protocol = (function (_super) {
             }, timeout);
         }
     };
-    NodeV8Protocol.prototype.command2 = function (command, args, timeout) {
-        var _this = this;
-        if (timeout === void 0) { timeout = NodeV8Protocol.TIMEOUT; }
-        return new Promise(function (completeDispatch, errorDispatch) {
-            _this.command(command, args, function (result) {
-                if (result.success) {
-                    completeDispatch(result);
-                }
-                else {
-                    errorDispatch(result);
-                }
-            });
-        });
-    };
-    NodeV8Protocol.prototype.sendEvent = function (event) {
-        this.send('event', event);
-    };
-    NodeV8Protocol.prototype.sendResponse = function (response) {
-        if (response.seq > 0) {
-            console.error('attempt to send more than one response for command {0}', response.command);
-        }
-        else {
-            this.send('response', response);
-        }
-    };
-    // ---- private ------------------------------------------------------------
     NodeV8Protocol.prototype.emitEvent = function (event) {
         this.emit(event.event, event);
     };

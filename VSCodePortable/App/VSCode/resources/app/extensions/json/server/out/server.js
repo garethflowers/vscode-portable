@@ -50,7 +50,7 @@ connection.onInitialize(function (params) {
         capabilities: {
             // Tell the client that the server works in FULL text document sync mode
             textDocumentSync: documents.syncKind,
-            completionProvider: { resolveProvider: false },
+            completionProvider: { resolveProvider: true },
             hoverProvider: true,
             documentSymbolProvider: true,
             documentRangeFormattingProvider: true,
@@ -73,9 +73,9 @@ var telemetry = {
 };
 var request = function (options) {
     if (Strings.startsWith(options.url, 'file://')) {
-        var fsPath = uri_1.default.parse(options.url).fsPath;
+        var fsPath_1 = uri_1.default.parse(options.url).fsPath;
         return new Promise(function (c, e) {
-            fs.readFile(fsPath, 'UTF-8', function (err, result) {
+            fs.readFile(fsPath_1, 'UTF-8', function (err, result) {
                 err ? e({ responseText: '', status: 404 }) : c({ responseText: result.toString(), status: 200 });
             });
         });
@@ -103,7 +103,7 @@ var contributions = [
 ];
 var jsonSchemaService = new jsonSchemaService_1.JSONSchemaService(request, workspaceContext, telemetry);
 jsonSchemaService.setSchemaContributions(configuration_1.schemaContributions);
-var jsonCompletion = new jsonCompletion_1.JSONCompletion(jsonSchemaService, contributions);
+var jsonCompletion = new jsonCompletion_1.JSONCompletion(jsonSchemaService, connection.console, contributions);
 var jsonHover = new jsonHover_1.JSONHover(jsonSchemaService, contributions);
 var jsonDocumentSymbols = new jsonDocumentSymbols_1.JSONDocumentSymbols();
 // The content of a text document has changed. This event is emitted
@@ -222,6 +222,9 @@ connection.onCompletion(function (textDocumentPosition) {
     var document = documents.get(textDocumentPosition.uri);
     var jsonDocument = getJSONDocument(document);
     return jsonCompletion.doSuggest(document, textDocumentPosition, jsonDocument);
+});
+connection.onCompletionResolve(function (item) {
+    return jsonCompletion.doResolve(item);
 });
 connection.onHover(function (textDocumentPosition) {
     var document = documents.get(textDocumentPosition.uri);

@@ -2,8 +2,8 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-'use strict';
 define(["require", "exports", 'vscode', './phpGlobals'], function (require, exports, vscode_1, phpGlobals) {
+    'use strict';
     var PHPHoverProvider = (function () {
         function PHPHoverProvider() {
         }
@@ -21,7 +21,7 @@ define(["require", "exports", 'vscode', './phpGlobals'], function (require, expo
             }
         };
         return PHPHoverProvider;
-    })();
+    }());
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.default = PHPHoverProvider;
 });

@@ -17,13 +17,13 @@ var TypeScriptFormattingProvider = (function () {
             return Promise.resolve(currentOptions);
         }
         else {
-            var args = {
+            var args_1 = {
                 file: this.client.asAbsolutePath(document.uri),
                 formatOptions: this.getFormatOptions(options)
             };
-            return this.client.execute('configure', args, token).then(function (response) {
-                _this.formatOptions[key] = args.formatOptions;
-                return args.formatOptions;
+            return this.client.execute('configure', args_1, token).then(function (response) {
+                _this.formatOptions[key] = args_1.formatOptions;
+                return args_1.formatOptions;
             });
         }
     };
@@ -76,6 +76,6 @@ var TypeScriptFormattingProvider = (function () {
         };
     };
     return TypeScriptFormattingProvider;
-})();
+}());
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = TypeScriptFormattingProvider;

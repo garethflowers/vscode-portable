@@ -103,7 +103,7 @@ var ProtocolBuffer = (function () {
         configurable: true
     });
     return ProtocolBuffer;
-})();
+}());
 (function (ReaderType) {
     ReaderType[ReaderType["Length"] = 0] = "Length";
     ReaderType[ReaderType["Line"] = 1] = "Line";
@@ -157,7 +157,7 @@ var Reader = (function () {
         }
     };
     return Reader;
-})();
+}());
 exports.Reader = Reader;
 var Writer = (function () {
     function Writer(writable) {
@@ -175,5 +175,5 @@ var Writer = (function () {
         this.writable.write(buffer.join(''), 'utf8');
     };
     return Writer;
-})();
+}());
 exports.Writer = Writer;

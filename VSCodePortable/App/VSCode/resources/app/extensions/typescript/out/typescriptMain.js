@@ -21,7 +21,7 @@ var formattingProvider_1 = require('./features/formattingProvider');
 var bufferSyncSupport_1 = require('./features/bufferSyncSupport');
 var completionItemProvider_1 = require('./features/completionItemProvider');
 var workspaceSymbolProvider_1 = require('./features/workspaceSymbolProvider');
-var SalsaStatus = require('./utils/salsaStatus');
+var VersionStatus = require('./utils/versionStatus');
 function activate(context) {
     var MODE_ID_TS = 'typescript';
     var MODE_ID_TSX = 'typescriptreact';
@@ -32,16 +32,16 @@ function activate(context) {
     context.subscriptions.push(vscode_1.commands.registerCommand('typescript.reloadProjects', function () {
         clientHost.reloadProjects();
     }));
-    vscode_1.window.onDidChangeActiveTextEditor(SalsaStatus.showHideStatus, null, context.subscriptions);
+    context.subscriptions.push(vscode_1.commands.registerCommand('javascript.reloadProjects', function () {
+        clientHost.reloadProjects();
+    }));
+    vscode_1.window.onDidChangeActiveTextEditor(VersionStatus.showHideStatus, null, context.subscriptions);
     // Register the supports for both TS and TSX so that we can have separate grammars but share the mode
     client.onReady().then(function () {
         registerSupports(MODE_ID_TS, clientHost, client);
         registerSupports(MODE_ID_TSX, clientHost, client);
-        var useSalsa = !!process.env['CODE_TSJS'] || !!process.env['VSCODE_TSJS'];
-        if (useSalsa) {
-            registerSupports(MODE_ID_JS, clientHost, client);
-            registerSupports(MODE_ID_JSX, clientHost, client);
-        }
+        registerSupports(MODE_ID_JS, clientHost, client);
+        registerSupports(MODE_ID_JSX, clientHost, client);
     }, function () {
         // Nothing to do here. The client did show a message;
     });
@@ -99,11 +99,6 @@ function registerSupports(modeID, host, client) {
             }
         ],
         __electricCharacterSupport: {
-            brackets: [
-                { tokenType: 'delimiter.curly.' + modeID, open: '{', close: '}', isElectric: true },
-                { tokenType: 'delimiter.square.' + modeID, open: '[', close: ']', isElectric: true },
-                { tokenType: 'delimiter.paren.' + modeID, open: '(', close: ')', isElectric: true }
-            ],
             docComment: { scope: 'comment.documentation', open: '/**', lineStart: ' * ', close: ' */' }
         },
         __characterPairSupport: {
@@ -200,8 +195,8 @@ var TypeScriptServiceClientHost = (function () {
     };
     TypeScriptServiceClientHost.prototype.createMarkerDatas = function (diagnostics) {
         var result = [];
-        for (var _i = 0; _i < diagnostics.length; _i++) {
-            var diagnostic = diagnostics[_i];
+        for (var _i = 0, diagnostics_1 = diagnostics; _i < diagnostics_1.length; _i++) {
+            var diagnostic = diagnostics_1[_i];
             var start = diagnostic.start, end = diagnostic.end, text = diagnostic.text;
             var range = new vscode_1.Range(start.line - 1, start.offset - 1, end.line - 1, end.offset - 1);
             result.push(new vscode_1.Diagnostic(range, text));
@@ -209,4 +204,4 @@ var TypeScriptServiceClientHost = (function () {
         return result;
     };
     return TypeScriptServiceClientHost;
-})();
+}());

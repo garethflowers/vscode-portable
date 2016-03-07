@@ -71,6 +71,6 @@ var JSONDocumentSymbols = (function () {
         }
     };
     return JSONDocumentSymbols;
-})();
+}());
 exports.JSONDocumentSymbols = JSONDocumentSymbols;
 //# sourceMappingURL=jsonDocumentSymbols.js.map

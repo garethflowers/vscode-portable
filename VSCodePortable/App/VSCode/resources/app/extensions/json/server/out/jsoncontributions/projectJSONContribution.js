@@ -6,13 +6,76 @@
 var vscode_languageserver_1 = require('vscode-languageserver');
 var Strings = require('../utils/strings');
 var nls = require('../utils/nls');
-var LIMIT = 40;
+var httpRequest_1 = require('../utils/httpRequest');
+var FEED_INDEX_URL = 'https://api.nuget.org/v3/index.json';
+var LIMIT = 30;
+var RESOLVE_ID = 'ProjectJSONContribution-';
+var CACHE_EXPIRY = 1000 * 60 * 5; // 5 minutes
 var ProjectJSONContribution = (function () {
     function ProjectJSONContribution(requestService) {
+        this.cachedProjects = {};
+        this.cacheSize = 0;
         this.requestService = requestService;
     }
     ProjectJSONContribution.prototype.isProjectJSONFile = function (resource) {
         return Strings.endsWith(resource, '/project.json');
+    };
+    ProjectJSONContribution.prototype.completeWithCache = function (id, item) {
+        var entry = this.cachedProjects[id];
+        if (entry) {
+            if (new Date().getTime() - entry.time > CACHE_EXPIRY) {
+                delete this.cachedProjects[id];
+                this.cacheSize--;
+                return false;
+            }
+            item.detail = entry.version;
+            item.documentation = entry.description;
+            item.insertText = item.insertText.replace(/\{\{\}\}/, '{{' + entry.version + '}}');
+            return true;
+        }
+        return false;
+    };
+    ProjectJSONContribution.prototype.addCached = function (id, version, description) {
+        this.cachedProjects[id] = { version: version, description: description, time: new Date().getTime() };
+        this.cacheSize++;
+        if (this.cacheSize > 50) {
+            var currentTime = new Date().getTime();
+            for (var id in this.cachedProjects) {
+                var entry = this.cachedProjects[id];
+                if (currentTime - entry.time > CACHE_EXPIRY) {
+                    delete this.cachedProjects[id];
+                    this.cacheSize--;
+                }
+            }
+        }
+    };
+    ProjectJSONContribution.prototype.getNugetIndex = function () {
+        if (!this.nugetIndexPromise) {
+            this.nugetIndexPromise = this.makeJSONRequest(FEED_INDEX_URL).then(function (indexContent) {
+                var services = {};
+                if (indexContent && Array.isArray(indexContent.resources)) {
+                    var resources = indexContent.resources;
+                    for (var i = resources.length - 1; i >= 0; i--) {
+                        var type = resources[i]['@type'];
+                        var id = resources[i]['@id'];
+                        if (type && id) {
+                            services[type] = id;
+                        }
+                    }
+                }
+                return services;
+            });
+        }
+        return this.nugetIndexPromise;
+    };
+    ProjectJSONContribution.prototype.getNugetService = function (serviceType) {
+        return this.getNugetIndex().then(function (services) {
+            var serviceURL = services[serviceType];
+            if (!serviceURL) {
+                return Promise.reject(nls.localize('json.nugget.error.missingservice', 'NuGet index document is missing service {0}', serviceType));
+            }
+            return serviceURL;
+        });
     };
     ProjectJSONContribution.prototype.collectDefaultSuggestions = function (resource, result) {
         if (this.isProjectJSONFile(resource)) {
@@ -28,147 +91,159 @@ var ProjectJSONContribution = (function () {
         }
         return null;
     };
+    ProjectJSONContribution.prototype.makeJSONRequest = function (url) {
+        return this.requestService({
+            url: url
+        }).then(function (success) {
+            if (success.status === 200) {
+                try {
+                    return JSON.parse(success.responseText);
+                }
+                catch (e) {
+                    return Promise.reject(nls.localize('json.nugget.error.invalidformat', '{0} is not a valid JSON document', url));
+                }
+            }
+            return Promise.reject(nls.localize('json.nugget.error.indexaccess', 'Request to {0} failed: {1}', url, success.responseText));
+        }, function (error) {
+            return Promise.reject(nls.localize('json.nugget.error.access', 'Request to {0} failed: {1}', url, httpRequest_1.getErrorStatusDescription(error.status)));
+        });
+    };
     ProjectJSONContribution.prototype.collectPropertySuggestions = function (resource, location, currentWord, addValue, isLast, result) {
+        var _this = this;
         if (this.isProjectJSONFile(resource) && (location.matches(['dependencies']) || location.matches(['frameworks', '*', 'dependencies']) || location.matches(['frameworks', '*', 'frameworkAssemblies']))) {
-            var queryUrl;
-            if (currentWord.length > 0) {
-                queryUrl = 'https://www.nuget.org/api/v2/Packages?'
-                    + '$filter=Id%20ge%20\''
-                    + encodeURIComponent(currentWord)
-                    + '\'%20and%20Id%20lt%20\''
-                    + encodeURIComponent(currentWord + 'z')
-                    + '\'%20and%20IsAbsoluteLatestVersion%20eq%20true'
-                    + '&$select=Id,Version,Description&$format=json&$top=' + LIMIT;
-            }
-            else {
-                queryUrl = 'https://www.nuget.org/api/v2/Packages?'
-                    + '$filter=IsAbsoluteLatestVersion%20eq%20true'
-                    + '&$orderby=DownloadCount%20desc&$top=' + LIMIT
-                    + '&$select=Id,Version,DownloadCount,Description&$format=json';
-            }
-            return this.requestService({
-                url: queryUrl
-            }).then(function (success) {
-                if (success.status === 200) {
-                    try {
-                        var obj = JSON.parse(success.responseText);
-                        if (Array.isArray(obj.d)) {
-                            var results = obj.d;
-                            for (var i = 0; i < results.length; i++) {
-                                var curr = results[i];
-                                var name_1 = curr.Id;
-                                var version = curr.Version;
-                                if (name_1) {
-                                    var documentation = curr.Description;
-                                    var typeLabel = curr.Version;
-                                    var insertText = JSON.stringify(name_1);
-                                    if (addValue) {
-                                        insertText += ': "{{' + version + '}}"';
-                                        if (!isLast) {
-                                            insertText += ',';
-                                        }
-                                    }
-                                    result.add({ kind: vscode_languageserver_1.CompletionItemKind.Property, label: name_1, insertText: insertText, detail: typeLabel, documentation: documentation });
-                                }
-                            }
-                            if (results.length === LIMIT) {
-                                result.setAsIncomplete();
-                            }
-                        }
-                    }
-                    catch (e) {
-                    }
+            return this.getNugetService('SearchAutocompleteService').then(function (service) {
+                var queryUrl;
+                if (currentWord.length > 0) {
+                    queryUrl = service + '?q=' + encodeURIComponent(currentWord) + '&take=' + LIMIT;
                 }
                 else {
-                    result.error(nls.localize('json.nugget.error.repoaccess', 'Request to the nuget repository failed: {0}', success.responseText));
-                    return 0;
+                    queryUrl = service + '?take=' + LIMIT;
                 }
-            }, function (error) {
-                result.error(nls.localize('json.nugget.error.repoaccess', 'Request to the nuget repository failed: {0}', error.responseText));
-                return 0;
-            });
-        }
-        return null;
-    };
-    ProjectJSONContribution.prototype.collectValueSuggestions = function (resource, location, currentKey, result) {
-        if (this.isProjectJSONFile(resource) && (location.matches(['dependencies']) || location.matches(['frameworks', '*', 'dependencies']) || location.matches(['frameworks', '*', 'frameworkAssemblies']))) {
-            var queryUrl = 'https://www.myget.org/F/aspnetrelease/api/v2/Packages?'
-                + '$filter=Id%20eq%20\''
-                + encodeURIComponent(currentKey)
-                + '\'&$select=Version,IsAbsoluteLatestVersion&$format=json&$top=' + LIMIT;
-            return this.requestService({
-                url: queryUrl
-            }).then(function (success) {
-                try {
-                    var obj = JSON.parse(success.responseText);
-                    if (Array.isArray(obj.d)) {
-                        var results = obj.d;
+                return _this.makeJSONRequest(queryUrl).then(function (resultObj) {
+                    if (Array.isArray(resultObj.data)) {
+                        var results = resultObj.data;
                         for (var i = 0; i < results.length; i++) {
-                            var curr = results[i];
-                            var version = curr.Version;
-                            if (version) {
-                                var name_2 = JSON.stringify(version);
-                                var isLatest = curr.IsAbsoluteLatestVersion === 'true';
-                                var label = name_2;
-                                var documentation = '';
-                                if (isLatest) {
-                                    documentation = nls.localize('json.nugget.versiondescription.suggest', 'The currently latest version of the package');
+                            var name_1 = results[i];
+                            var insertText = JSON.stringify(name_1);
+                            if (addValue) {
+                                insertText += ': "{{}}"';
+                                if (!isLast) {
+                                    insertText += ',';
                                 }
-                                result.add({ kind: vscode_languageserver_1.CompletionItemKind.Class, label: label, insertText: name_2, documentation: documentation });
                             }
+                            var item = { kind: vscode_languageserver_1.CompletionItemKind.Property, label: name_1, insertText: insertText };
+                            if (!_this.completeWithCache(name_1, item)) {
+                                item.data = RESOLVE_ID + name_1;
+                            }
+                            result.add(item);
                         }
                         if (results.length === LIMIT) {
                             result.setAsIncomplete();
                         }
                     }
-                }
-                catch (e) {
-                }
-                return 0;
+                }, function (error) {
+                    result.error(error);
+                });
             }, function (error) {
-                return 0;
+                result.error(error);
+            });
+        }
+        ;
+        return null;
+    };
+    ProjectJSONContribution.prototype.collectValueSuggestions = function (resource, location, currentKey, result) {
+        var _this = this;
+        if (this.isProjectJSONFile(resource) && (location.matches(['dependencies']) || location.matches(['frameworks', '*', 'dependencies']) || location.matches(['frameworks', '*', 'frameworkAssemblies']))) {
+            return this.getNugetService('PackageBaseAddress/3.0.0').then(function (service) {
+                var queryUrl = service + currentKey + '/index.json';
+                return _this.makeJSONRequest(queryUrl).then(function (obj) {
+                    if (Array.isArray(obj.versions)) {
+                        var results = obj.versions;
+                        for (var i = 0; i < results.length; i++) {
+                            var curr = results[i];
+                            var name_2 = JSON.stringify(curr);
+                            var label = name_2;
+                            var documentation = '';
+                            result.add({ kind: vscode_languageserver_1.CompletionItemKind.Class, label: label, insertText: name_2, documentation: documentation });
+                        }
+                        if (results.length === LIMIT) {
+                            result.setAsIncomplete();
+                        }
+                    }
+                }, function (error) {
+                    result.error(error);
+                });
+            }, function (error) {
+                result.error(error);
             });
         }
         return null;
     };
     ProjectJSONContribution.prototype.getInfoContribution = function (resource, location) {
+        var _this = this;
         if (this.isProjectJSONFile(resource) && (location.matches(['dependencies', '*']) || location.matches(['frameworks', '*', 'dependencies', '*']) || location.matches(['frameworks', '*', 'frameworkAssemblies', '*']))) {
-            var pack = location.getSegments()[location.getSegments().length - 1];
-            var htmlContent = [];
-            htmlContent.push(nls.localize('json.nugget.package.hover', '{0}', pack));
-            var queryUrl = 'https://www.myget.org/F/aspnetrelease/api/v2/Packages?'
-                + '$filter=Id%20eq%20\''
-                + encodeURIComponent(pack)
-                + '\'%20and%20IsAbsoluteLatestVersion%20eq%20true'
-                + '&$select=Version,Description&$format=json&$top=5';
-            return this.requestService({
-                url: queryUrl
-            }).then(function (success) {
-                var content = success.responseText;
-                if (content) {
-                    try {
-                        var obj = JSON.parse(content);
-                        if (obj.d && obj.d[0]) {
-                            var res = obj.d[0];
-                            if (res.Description) {
-                                htmlContent.push(res.Description);
-                            }
-                            if (res.Version) {
-                                htmlContent.push(nls.localize('json.nugget.version.hover', 'Latest version: {0}', res.Version));
+            var pack_1 = location.getSegments()[location.getSegments().length - 1];
+            return this.getNugetService('SearchQueryService').then(function (service) {
+                var queryUrl = service + '?q=' + encodeURIComponent(pack_1) + '&take=' + 5;
+                return _this.makeJSONRequest(queryUrl).then(function (resultObj) {
+                    var htmlContent = [];
+                    htmlContent.push(nls.localize('json.nugget.package.hover', '{0}', pack_1));
+                    if (Array.isArray(resultObj.data)) {
+                        var results = resultObj.data;
+                        for (var i = 0; i < results.length; i++) {
+                            var res = results[i];
+                            _this.addCached(res.id, res.version, res.description);
+                            if (res.id === pack_1) {
+                                if (res.description) {
+                                    htmlContent.push(res.description);
+                                }
+                                if (res.version) {
+                                    htmlContent.push(nls.localize('json.nugget.version.hover', 'Latest version: {0}', res.version));
+                                }
+                                break;
                             }
                         }
                     }
-                    catch (e) {
-                    }
-                }
-                return htmlContent;
+                    return htmlContent;
+                }, function (error) {
+                    return null;
+                });
             }, function (error) {
-                return htmlContent;
+                return null;
             });
         }
         return null;
     };
+    ProjectJSONContribution.prototype.resolveSuggestion = function (item) {
+        var _this = this;
+        if (item.data && Strings.startsWith(item.data, RESOLVE_ID)) {
+            var pack_2 = item.data.substring(RESOLVE_ID.length);
+            if (this.completeWithCache(pack_2, item)) {
+                return Promise.resolve(item);
+            }
+            return this.getNugetService('SearchQueryService').then(function (service) {
+                var queryUrl = service + '?q=' + encodeURIComponent(pack_2) + '&take=' + 10;
+                return _this.makeJSONRequest(queryUrl).then(function (resultObj) {
+                    var itemResolved = false;
+                    if (Array.isArray(resultObj.data)) {
+                        var results = resultObj.data;
+                        for (var i = 0; i < results.length; i++) {
+                            var curr = results[i];
+                            _this.addCached(curr.id, curr.version, curr.description);
+                            if (curr.id === pack_2) {
+                                _this.completeWithCache(pack_2, item);
+                                itemResolved = true;
+                            }
+                        }
+                    }
+                    return itemResolved ? item : null;
+                });
+            });
+        }
+        ;
+        return null;
+    };
     return ProjectJSONContribution;
-})();
+}());
 exports.ProjectJSONContribution = ProjectJSONContribution;
 //# sourceMappingURL=projectJSONContribution.js.map

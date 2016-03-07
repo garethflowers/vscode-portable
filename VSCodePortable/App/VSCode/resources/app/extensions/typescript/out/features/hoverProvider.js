@@ -27,6 +27,6 @@ var TypeScriptHoverProvider = (function () {
         });
     };
     return TypeScriptHoverProvider;
-})();
+}());
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = TypeScriptHoverProvider;

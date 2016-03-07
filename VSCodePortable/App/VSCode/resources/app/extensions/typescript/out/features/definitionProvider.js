@@ -38,6 +38,6 @@ var TypeScriptDefinitionProvider = (function () {
         });
     };
     return TypeScriptDefinitionProvider;
-})();
+}());
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = TypeScriptDefinitionProvider;

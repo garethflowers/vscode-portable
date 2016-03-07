@@ -1,9 +1,9 @@
 {
 	"nameShort": "Code",
 	"nameLong": "Visual Studio Code",
+	"applicationName": "code",
 	"dataFolderName": ".vscode",
 	"win32MutexName": "vscode",
-	"win32ShortcutName": "code",
 	"licenseUrl": "http://go.microsoft.com/fwlink/?LinkID=533485#vscode",
 	"darwinBundleIdentifier": "com.microsoft.VSCode",
 	"welcomePage": "http://go.microsoft.com/fwlink/?LinkId=723048",
@@ -21,6 +21,7 @@
 	"expiryUrl": "http://go.microsoft.com/fwlink/?LinkID=533481",
 	"extensionsGallery": {
 		"serviceUrl": "https://marketplace.visualstudio.com/_apis/public/gallery",
+		"cacheUrl": "https://vscode.blob.core.windows.net/gallery/index",
 		"itemUrl": "https://marketplace.visualstudio.com/items"
 	},
 	"crashReporter": {
@@ -48,6 +49,6 @@
 	"requestFeatureUrl": "http://go.microsoft.com/fwlink/?LinkID=533482",
 	"reportIssueUrl": "http://go.microsoft.com/fwlink/?LinkId=534872",
 	"privacyStatementUrl": "http://go.microsoft.com/fwlink/?LinkID=528096&clcid=0x409",
-	"commit": "db71ac615ddf9f33b133ff2536f5d33a77d4774e",
-	"date": "2016-02-05T10:10:11.194Z"
+	"commit": "5b5f4db87c10345b9d5c8d0bed745bcad4533135",
+	"date": "2016-03-07T10:38:23.764Z"
 }

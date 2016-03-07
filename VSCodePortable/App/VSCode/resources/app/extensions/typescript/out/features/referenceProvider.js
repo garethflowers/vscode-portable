@@ -34,6 +34,6 @@ var TypeScriptReferenceSupport = (function () {
         });
     };
     return TypeScriptReferenceSupport;
-})();
+}());
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = TypeScriptReferenceSupport;

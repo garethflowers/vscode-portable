@@ -44,6 +44,6 @@ var GlobPatternContribution = (function () {
         return null;
     };
     return GlobPatternContribution;
-})();
+}());
 exports.GlobPatternContribution = GlobPatternContribution;
 //# sourceMappingURL=globPatternContribution.js.map

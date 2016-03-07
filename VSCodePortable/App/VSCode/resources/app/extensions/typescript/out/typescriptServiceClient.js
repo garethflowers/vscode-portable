@@ -8,11 +8,8 @@ var fs = require('fs');
 var electron = require('./utils/electron');
 var wireProtocol_1 = require('./utils/wireProtocol');
 var vscode_1 = require('vscode');
-var SalsaStatus = require('./utils/salsaStatus');
-var isWin = /^win/.test(process.platform);
-var isDarwin = /^darwin/.test(process.platform);
-var isLinux = /^linux/.test(process.platform);
-var arch = process.arch;
+var VersionStatus = require('./utils/versionStatus');
+var vscode_extension_telemetry_1 = require('vscode-extension-telemetry');
 var TypeScriptServiceClient = (function () {
     function TypeScriptServiceClient(host) {
         var _this = this;
@@ -39,6 +36,9 @@ var TypeScriptServiceClient = (function () {
                 _this.startService();
             }
         });
+        if (this.packageInfo && this.packageInfo.aiKey) {
+            this.telemetryReporter = new vscode_extension_telemetry_1.default(this.packageInfo.name, this.packageInfo.version, this.packageInfo.aiKey);
+        }
         this.startService();
     }
     TypeScriptServiceClient.prototype.onReady = function () {
@@ -51,6 +51,33 @@ var TypeScriptServiceClient = (function () {
         enumerable: true,
         configurable: true
     });
+    Object.defineProperty(TypeScriptServiceClient.prototype, "packageInfo", {
+        get: function () {
+            if (this._packageInfo !== undefined) {
+                return this._packageInfo;
+            }
+            var packagePath = path.join(__dirname, './../package.json');
+            var extensionPackage = require(packagePath);
+            if (extensionPackage) {
+                this._packageInfo = {
+                    name: extensionPackage.name,
+                    version: extensionPackage.version,
+                    aiKey: extensionPackage.aiKey
+                };
+            }
+            else {
+                this._packageInfo = null;
+            }
+            return this._packageInfo;
+        },
+        enumerable: true,
+        configurable: true
+    });
+    TypeScriptServiceClient.prototype.logTelemetry = function (eventName, properties) {
+        if (this.telemetryReporter) {
+            this.telemetryReporter.sendTelemetryEvent(eventName, properties);
+        }
+    };
     TypeScriptServiceClient.prototype.service = function () {
         if (this.servicePromise) {
             return this.servicePromise;
@@ -65,7 +92,6 @@ var TypeScriptServiceClient = (function () {
         var _this = this;
         if (resendModels === void 0) { resendModels = false; }
         var modulePath = path.join(__dirname, '..', 'server', 'typescript', 'lib', 'tsserver.js');
-        var useSalsa = !!process.env['CODE_TSJS'] || !!process.env['VSCODE_TSJS'];
         if (this.tsdk) {
             if (path.isAbsolute(this.tsdk)) {
                 modulePath = path.join(this.tsdk, 'tsserver.js');
@@ -74,30 +100,13 @@ var TypeScriptServiceClient = (function () {
                 modulePath = path.join(vscode_1.workspace.rootPath, this.tsdk, 'tsserver.js');
             }
         }
-        else if (useSalsa) {
-            var candidate = path.join(vscode_1.workspace.rootPath, 'node_modules', 'typescript', 'lib', 'tsserver.js');
-            if (fs.existsSync(candidate)) {
-                modulePath = candidate;
-            }
-        }
         if (!fs.existsSync(modulePath)) {
             vscode_1.window.showErrorMessage("The path " + path.dirname(modulePath) + " doesn't point to a valid tsserver install. TypeScript language features will be disabled.");
             return;
         }
-        if (useSalsa) {
-            var versionOK = this.isTypeScriptVersionOkForSalsa(modulePath);
-            var tooltip = modulePath;
-            var label;
-            if (!versionOK) {
-                label = '(Salsa !)';
-                tooltip = tooltip + " does not support Salsa!";
-            }
-            else {
-                label = '(Salsa)';
-                tooltip = tooltip + " does support Salsa.";
-            }
-            SalsaStatus.show(label, tooltip, !versionOK);
-        }
+        var label = this.getTypeScriptVersion(modulePath);
+        var tooltip = modulePath;
+        VersionStatus.setInfo(label, tooltip);
         this.servicePromise = new Promise(function (resolve, reject) {
             try {
                 var options = {
@@ -114,6 +123,7 @@ var TypeScriptServiceClient = (function () {
                     if (err) {
                         _this.lastError = err;
                         vscode_1.window.showErrorMessage("TypeScript language server couldn't be started. Error message is: " + err.message);
+                        _this.logTelemetry('error', { message: err.message });
                         return;
                     }
                     _this.lastStart = Date.now();
@@ -143,16 +153,17 @@ var TypeScriptServiceClient = (function () {
             this.host.populateService();
         }
     };
-    TypeScriptServiceClient.prototype.isTypeScriptVersionOkForSalsa = function (serverPath) {
+    TypeScriptServiceClient.prototype.getTypeScriptVersion = function (serverPath) {
+        var unknown = 'unknown';
         var p = serverPath.split(path.sep);
         if (p.length <= 2) {
-            return true; // assume OK, cannot check
+            return unknown;
         }
         var p2 = p.slice(0, -2);
         var modulePath = p2.join(path.sep);
         var fileName = path.join(modulePath, 'package.json');
         if (!fs.existsSync(fileName)) {
-            return true; // assume OK, cannot check
+            return unknown;
         }
         var contents = fs.readFileSync(fileName).toString();
         var desc = null;
@@ -160,13 +171,12 @@ var TypeScriptServiceClient = (function () {
             desc = JSON.parse(contents);
         }
         catch (err) {
-            return true;
+            return unknown;
         }
         if (!desc.version) {
-            return true;
+            return unknown;
         }
-        // just use a string compare, don't want to add a dependency on semver
-        return desc.version.indexOf('1.8') >= 0 || desc.version.indexOf('1.9') >= 0;
+        return desc.version;
     };
     TypeScriptServiceClient.prototype.serviceExited = function (restart) {
         var _this = this;
@@ -186,6 +196,7 @@ var TypeScriptServiceClient = (function () {
                 else if (diff < 2 * 1000 /* 2 seconds */) {
                     startService = false;
                     vscode_1.window.showErrorMessage('The Typesrript language service died 5 times right after it got started. The service will not be restarted. Please open a bug report.');
+                    this.logTelemetry('serviceExited');
                 }
             }
             if (startService) {
@@ -322,6 +333,6 @@ var TypeScriptServiceClient = (function () {
     };
     TypeScriptServiceClient.Trace = process.env.TSS_TRACE || false;
     return TypeScriptServiceClient;
-})();
+}());
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = TypeScriptServiceClient;

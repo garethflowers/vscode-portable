@@ -29,6 +29,6 @@ var JSONLocation = (function () {
         return '[' + this.segments.join('][') + ']';
     };
     return JSONLocation;
-})();
+}());
 exports.JSONLocation = JSONLocation;
 //# sourceMappingURL=jsonLocation.js.map

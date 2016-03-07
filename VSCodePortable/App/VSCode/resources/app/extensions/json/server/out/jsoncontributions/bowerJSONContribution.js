@@ -96,8 +96,8 @@ var BowerJSONContribution = (function () {
     BowerJSONContribution.prototype.getInfoContribution = function (resource, location) {
         if (this.isBowerFile(resource) && (location.matches(['dependencies', '*']) || location.matches(['devDependencies', '*']))) {
             var pack = location.getSegments()[location.getSegments().length - 1];
-            var htmlContent = [];
-            htmlContent.push(nls.localize('json.bower.package.hover', '{0}', pack));
+            var htmlContent_1 = [];
+            htmlContent_1.push(nls.localize('json.bower.package.hover', '{0}', pack));
             var queryUrl = 'https://bower.herokuapp.com/packages/' + encodeURIComponent(pack);
             return this.requestService({
                 url: queryUrl
@@ -112,19 +112,19 @@ var BowerJSONContribution = (function () {
                         if (Strings.endsWith(url, '.git')) {
                             url = url.substring(0, url.length - 4);
                         }
-                        htmlContent.push(url);
+                        htmlContent_1.push(url);
                     }
                 }
                 catch (e) {
                 }
-                return htmlContent;
+                return htmlContent_1;
             }, function (error) {
-                return htmlContent;
+                return htmlContent_1;
             });
         }
         return null;
     };
     return BowerJSONContribution;
-})();
+}());
 exports.BowerJSONContribution = BowerJSONContribution;
 //# sourceMappingURL=bowerJSONContribution.js.map

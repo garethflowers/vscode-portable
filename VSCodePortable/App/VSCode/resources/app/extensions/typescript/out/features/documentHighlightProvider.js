@@ -29,6 +29,6 @@ var TypeScriptDocumentHighlightProvider = (function () {
         });
     };
     return TypeScriptDocumentHighlightProvider;
-})();
+}());
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = TypeScriptDocumentHighlightProvider;

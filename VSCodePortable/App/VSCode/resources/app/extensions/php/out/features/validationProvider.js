@@ -1,9 +1,9 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-'use strict';
 define(["require", "exports", 'child_process', 'string_decoder', 'vscode', './utils/async'], function (require, exports, cp, string_decoder_1, vscode, async_1) {
+    /*---------------------------------------------------------------------------------------------
+     *  Copyright (c) Microsoft Corporation. All rights reserved.
+     *  Licensed under the MIT License. See License.txt in the project root for license information.
+     *--------------------------------------------------------------------------------------------*/
+    'use strict';
     var LineDecoder = (function () {
         function LineDecoder(encoding) {
             if (encoding === void 0) { encoding = 'utf8'; }
@@ -45,7 +45,7 @@ define(["require", "exports", 'child_process', 'string_decoder', 'vscode', './ut
             return this.remaining;
         };
         return LineDecoder;
-    })();
+    }());
     exports.LineDecoder = LineDecoder;
     var RunTrigger;
     (function (RunTrigger) {
@@ -137,14 +137,12 @@ define(["require", "exports", 'child_process', 'string_decoder', 'vscode', './ut
             var _this = this;
             return new Promise(function (resolve, reject) {
                 var executable = _this.executable || 'php';
-                var filePath = textDocument.fileName;
                 var decoder = new LineDecoder();
                 var diagnostics = [];
                 var processLine = function (line) {
                     var matches = line.match(PHPValidationProvider.MatchExpression);
                     if (matches) {
                         var message = matches[1];
-                        var file = matches[2];
                         var line_1 = parseInt(matches[3]) - 1;
                         var diagnostic = new vscode.Diagnostic(new vscode.Range(line_1, 0, line_1, Number.MAX_VALUE), message);
                         diagnostics.push(diagnostic);
@@ -159,50 +157,58 @@ define(["require", "exports", 'child_process', 'string_decoder', 'vscode', './ut
                 else {
                     args = PHPValidationProvider.BufferArgs;
                 }
-                var childProcess = cp.spawn(executable, args, options);
-                childProcess.on('error', function (error) {
-                    if (_this.executableNotFound) {
+                try {
+                    var childProcess = cp.spawn(executable, args, options);
+                    childProcess.on('error', function (error) {
+                        if (_this.executableNotFound) {
+                            resolve();
+                            return;
+                        }
+                        _this.showError(error, executable);
+                        _this.executableNotFound = true;
                         resolve();
-                        return;
-                    }
-                    var message = null;
-                    if (error.code === 'ENOENT') {
-                        message = "Cannot validate the php file. The php program was not found. Use the 'php.validate.executablePath' setting to configure the location of 'php'";
+                    });
+                    if (childProcess.pid) {
+                        if (_this.trigger === RunTrigger.onType) {
+                            childProcess.stdin.write(textDocument.getText());
+                            childProcess.stdin.end();
+                        }
+                        childProcess.stdout.on('data', function (data) {
+                            decoder.write(data).forEach(processLine);
+                        });
+                        childProcess.stdout.on('end', function () {
+                            var line = decoder.end();
+                            if (line) {
+                                processLine(line);
+                            }
+                            _this.diagnosticCollection.set(textDocument.uri, diagnostics);
+                            resolve();
+                        });
                     }
                     else {
-                        message = error.message ? error.message : "Failed to run php using path: " + executable + ". Reason is unknown.";
-                    }
-                    vscode.window.showInformationMessage(message);
-                    _this.executableNotFound = true;
-                    resolve();
-                });
-                if (childProcess.pid) {
-                    if (_this.trigger === RunTrigger.onType) {
-                        childProcess.stdin.write(textDocument.getText());
-                        childProcess.stdin.end();
-                    }
-                    childProcess.stdout.on('data', function (data) {
-                        decoder.write(data).forEach(processLine);
-                    });
-                    childProcess.stdout.on('end', function () {
-                        var line = decoder.end();
-                        if (line) {
-                            processLine(line);
-                        }
-                        _this.diagnosticCollection.set(textDocument.uri, diagnostics);
                         resolve();
-                    });
+                    }
                 }
-                else {
-                    resolve();
+                catch (error) {
+                    _this.showError(error, executable);
                 }
             });
+        };
+        PHPValidationProvider.prototype.showError = function (error, executable) {
+            var message = null;
+            if (error.code === 'ENOENT') {
+                message = "Cannot validate the php file. The php program was not found. Use the 'php.validate.executablePath' setting to configure the location of 'php'";
+            }
+            else {
+                message = error.message ? error.message : "Failed to run php using path: " + executable + ". Reason is unknown.";
+            }
+            vscode.window.showInformationMessage(message);
         };
         PHPValidationProvider.MatchExpression = /(?:(?:Parse|Fatal) error): (.*)(?: in )(.*?)(?: on line )(\d+)/;
         PHPValidationProvider.BufferArgs = ['-l', '-n', '-d', 'display_errors=On', '-d', 'log_errors=Off'];
         PHPValidationProvider.FileArgs = ['-l', '-n', '-d', 'display_errors=On', '-d', 'log_errors=Off', '-f'];
         return PHPValidationProvider;
-    })();
+    }());
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.default = PHPValidationProvider;
 });

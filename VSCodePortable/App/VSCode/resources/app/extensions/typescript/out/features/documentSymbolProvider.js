@@ -46,15 +46,15 @@ var TypeScriptDocumentSymbolProvider = (function () {
         }
         return this.client.execute('navbar', args, token).then(function (response) {
             if (response.body) {
-                var result = [];
-                response.body.forEach(function (item) { return convert(result, item); });
-                return result;
+                var result_1 = [];
+                response.body.forEach(function (item) { return convert(result_1, item); });
+                return result_1;
             }
         }, function (err) {
             return [];
         });
     };
     return TypeScriptDocumentSymbolProvider;
-})();
+}());
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = TypeScriptDocumentSymbolProvider;

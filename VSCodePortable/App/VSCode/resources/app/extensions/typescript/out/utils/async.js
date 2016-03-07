@@ -60,5 +60,5 @@ var Delayer = (function () {
         }
     };
     return Delayer;
-})();
+}());
 exports.Delayer = Delayer;
