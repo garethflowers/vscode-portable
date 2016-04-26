@@ -4,11 +4,56 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 var vscode_1 = require('vscode');
+var Configuration;
+(function (Configuration) {
+    Configuration.insertSpaceAfterCommaDelimiter = 'insertSpaceAfterCommaDelimiter';
+    Configuration.insertSpaceAfterSemicolonInForStatements = 'insertSpaceAfterSemicolonInForStatements';
+    Configuration.insertSpaceBeforeAndAfterBinaryOperators = 'insertSpaceBeforeAndAfterBinaryOperators';
+    Configuration.insertSpaceAfterKeywordsInControlFlowStatements = 'insertSpaceAfterKeywordsInControlFlowStatements';
+    Configuration.insertSpaceAfterFunctionKeywordForAnonymousFunctions = 'insertSpaceAfterFunctionKeywordForAnonymousFunctions';
+    Configuration.insertSpaceAfterOpeningAndBeforeClosingNonemptyParenthesis = 'insertSpaceAfterOpeningAndBeforeClosingNonemptyParenthesis';
+    Configuration.insertSpaceAfterOpeningAndBeforeClosingNonemptyBrackets = 'insertSpaceAfterOpeningAndBeforeClosingNonemptyBrackets';
+    Configuration.placeOpenBraceOnNewLineForFunctions = 'placeOpenBraceOnNewLineForFunctions';
+    Configuration.placeOpenBraceOnNewLineForControlBlocks = 'placeOpenBraceOnNewLineForControlBlocks';
+    function equals(a, b) {
+        var keys = Object.keys(a);
+        for (var i = 0; i < keys.length; i++) {
+            var key = keys[i];
+            if (a[key] !== b[key]) {
+                return false;
+            }
+        }
+        return true;
+    }
+    Configuration.equals = equals;
+    function def() {
+        var result = Object.create(null);
+        result.insertSpaceAfterCommaDelimiter = true;
+        result.insertSpaceAfterSemicolonInForStatements = true;
+        result.insertSpaceBeforeAndAfterBinaryOperators = true;
+        result.insertSpaceAfterKeywordsInControlFlowStatements = true;
+        result.insertSpaceAfterFunctionKeywordForAnonymousFunctions = false;
+        result.insertSpaceAfterOpeningAndBeforeClosingNonemptyParenthesis = false;
+        result.insertSpaceAfterOpeningAndBeforeClosingNonemptyBrackets = false;
+        result.placeOpenBraceOnNewLineForFunctions = false;
+        result.placeOpenBraceOnNewLineForControlBlocks = false;
+        return result;
+    }
+    Configuration.def = def;
+})(Configuration || (Configuration = {}));
 var TypeScriptFormattingProvider = (function () {
     function TypeScriptFormattingProvider(client) {
         this.client = client;
+        this.config = Configuration.def();
         this.formatOptions = Object.create(null);
     }
+    TypeScriptFormattingProvider.prototype.updateConfiguration = function (config) {
+        var newConfig = config.get('format', Configuration.def());
+        if (!Configuration.equals(this.config, newConfig)) {
+            this.config = newConfig;
+            this.formatOptions = Object.create(null);
+        }
+    };
     TypeScriptFormattingProvider.prototype.ensureFormatOptions = function (document, options, token) {
         var _this = this;
         var key = document.uri.toString();
@@ -72,10 +117,20 @@ var TypeScriptFormattingProvider = (function () {
             indentSize: options.tabSize,
             convertTabsToSpaces: options.insertSpaces,
             // We can use \n here since the editor normalizes later on to its line endings.
-            newLineCharacter: '\n'
+            newLineCharacter: '\n',
+            insertSpaceAfterCommaDelimiter: this.config.insertSpaceAfterCommaDelimiter,
+            insertSpaceAfterSemicolonInForStatements: this.config.insertSpaceAfterSemicolonInForStatements,
+            insertSpaceBeforeAndAfterBinaryOperators: this.config.insertSpaceBeforeAndAfterBinaryOperators,
+            insertSpaceAfterKeywordsInControlFlowStatements: this.config.insertSpaceAfterKeywordsInControlFlowStatements,
+            insertSpaceAfterFunctionKeywordForAnonymousFunctions: this.config.insertSpaceAfterFunctionKeywordForAnonymousFunctions,
+            insertSpaceAfterOpeningAndBeforeClosingNonemptyParenthesis: this.config.insertSpaceAfterOpeningAndBeforeClosingNonemptyParenthesis,
+            insertSpaceAfterOpeningAndBeforeClosingNonemptyBrackets: this.config.insertSpaceAfterOpeningAndBeforeClosingNonemptyBrackets,
+            placeOpenBraceOnNewLineForFunctions: this.config.placeOpenBraceOnNewLineForFunctions,
+            placeOpenBraceOnNewLineForControlBlocks: this.config.placeOpenBraceOnNewLineForControlBlocks
         };
     };
     return TypeScriptFormattingProvider;
 }());
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = TypeScriptFormattingProvider;
+//# sourceMappingURL=formattingProvider.js.map

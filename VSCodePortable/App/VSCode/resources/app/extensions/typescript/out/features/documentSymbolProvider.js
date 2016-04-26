@@ -58,3 +58,4 @@ var TypeScriptDocumentSymbolProvider = (function () {
 }());
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = TypeScriptDocumentSymbolProvider;
+//# sourceMappingURL=documentSymbolProvider.js.map

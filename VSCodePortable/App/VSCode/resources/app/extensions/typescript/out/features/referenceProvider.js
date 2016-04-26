@@ -37,3 +37,4 @@ var TypeScriptReferenceSupport = (function () {
 }());
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = TypeScriptReferenceSupport;
+//# sourceMappingURL=referenceProvider.js.map

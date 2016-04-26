@@ -20,6 +20,9 @@ var bowerJSONContribution_1 = require('./jsoncontributions/bowerJSONContribution
 var packageJSONContribution_1 = require('./jsoncontributions/packageJSONContribution');
 var projectJSONContribution_1 = require('./jsoncontributions/projectJSONContribution');
 var globPatternContribution_1 = require('./jsoncontributions/globPatternContribution');
+var fileAssociationContribution_1 = require('./jsoncontributions/fileAssociationContribution');
+var nls = require('vscode-nls');
+nls.config(process.env['VSCODE_NLS_CONFIG']);
 var TelemetryNotification;
 (function (TelemetryNotification) {
     TelemetryNotification.type = { get method() { return 'telemetry'; } };
@@ -41,11 +44,13 @@ var documents = new vscode_languageserver_1.TextDocuments();
 // Make the text document manager listen on the connection
 // for open, change and close text document events
 documents.listen(connection);
+var filesAssociationContribution = new fileAssociationContribution_1.FileAssociationContribution();
 // After the server has started the client sends an initilize request. The server receives
 // in the passed params the rootPath of the workspace plus the client capabilites.
 var workspaceRoot;
 connection.onInitialize(function (params) {
     workspaceRoot = uri_1.default.parse(params.rootPath);
+    filesAssociationContribution.setLanguageIds(params.initializationOptions.languageIds);
     return {
         capabilities: {
             // Tell the client that the server works in FULL text document sync mode
@@ -99,7 +104,8 @@ var contributions = [
     new projectJSONContribution_1.ProjectJSONContribution(request),
     new packageJSONContribution_1.PackageJSONContribution(request),
     new bowerJSONContribution_1.BowerJSONContribution(request),
-    new globPatternContribution_1.GlobPatternContribution()
+    new globPatternContribution_1.GlobPatternContribution(),
+    filesAssociationContribution
 ];
 var jsonSchemaService = new jsonSchemaService_1.JSONSchemaService(request, workspaceContext, telemetry);
 jsonSchemaService.setSchemaContributions(configuration_1.schemaContributions);

@@ -32,3 +32,4 @@ var TypeScriptDocumentHighlightProvider = (function () {
 }());
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = TypeScriptDocumentHighlightProvider;
+//# sourceMappingURL=documentHighlightProvider.js.map

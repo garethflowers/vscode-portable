@@ -63,3 +63,4 @@ var TypeScriptWorkspaceSymbolProvider = (function () {
 }());
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = TypeScriptWorkspaceSymbolProvider;
+//# sourceMappingURL=workspaceSymbolProvider.js.map

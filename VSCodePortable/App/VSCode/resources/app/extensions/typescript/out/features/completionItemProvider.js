@@ -9,7 +9,6 @@ var __extends = (this && this.__extends) || function (d, b) {
     d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 };
 var vscode_1 = require('vscode');
-var configuration_1 = require('./configuration');
 var PConst = require('../protocol.const');
 var Previewer = require('./previewer');
 var MyCompletionItem = (function (_super) {
@@ -52,16 +51,20 @@ var MyCompletionItem = (function (_super) {
     };
     return MyCompletionItem;
 }(vscode_1.CompletionItem));
+var Configuration;
+(function (Configuration) {
+    Configuration.useCodeSnippetsOnMethodSuggest = 'useCodeSnippetsOnMethodSuggest';
+})(Configuration || (Configuration = {}));
 var TypeScriptCompletionItemProvider = (function () {
     function TypeScriptCompletionItemProvider(client) {
         this.triggerCharacters = ['.'];
         this.excludeTokens = ['string', 'comment', 'numeric'];
         this.sortBy = [{ type: 'reference', partSeparator: '/' }];
         this.client = client;
-        this.config = configuration_1.defaultConfiguration;
+        this.config = { useCodeSnippetsOnMethodSuggest: false };
     }
-    TypeScriptCompletionItemProvider.prototype.setConfiguration = function (config) {
-        this.config = config;
+    TypeScriptCompletionItemProvider.prototype.updateConfiguration = function (config) {
+        this.config.useCodeSnippetsOnMethodSuggest = config.get(Configuration.useCodeSnippetsOnMethodSuggest, false);
     };
     TypeScriptCompletionItemProvider.prototype.provideCompletionItems = function (document, position, token) {
         var filepath = this.client.asAbsolutePath(document.uri);
@@ -144,3 +147,4 @@ var TypeScriptCompletionItemProvider = (function () {
 }());
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = TypeScriptCompletionItemProvider;
+//# sourceMappingURL=completionItemProvider.js.map

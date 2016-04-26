@@ -3,4 +3,4 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 !function(){"use strict";var e=self.MonacoEnvironment,s=e&&e.baseUrl?e.baseUrl:"../../../";importScripts(s+"vs/loader.js"),require.config({baseUrl:s,catchError:!0});var n=function(e){require([e],function(e){var s=e.create(function(e){self.postMessage(e)},null);for(self.onmessage=function(e){return s.onmessage(e.data)};o.length>0;)self.onmessage(o.shift())})},r=!0,o=[];self.onmessage=function(e){return r?(r=!1,void n(e.data)):void o.push(e)}}();
-//# sourceMappingURL=https://ticino.blob.core.windows.net/sourcemaps/f291f4ad600767626b24a4b15816b04bee9a3049/vs\base\worker\workerMain.js.map
+//# sourceMappingURL=https://ticino.blob.core.windows.net/sourcemaps/fa6d0f03813dfb9df4589c30121e9fcffa8a8ec8/vs\base\worker\workerMain.js.map

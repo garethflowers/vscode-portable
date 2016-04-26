@@ -1,24 +1,30 @@
 {
 	"name": "node-debug",
-	"displayName": "%extension.displayName%",
-	"version": "0.10.5",
-	"publisher": "andreweinand",
+	"displayName": "Node Debug",
+	"version": "0.10.13",
+	"publisher": "ms-vscode",
 	"description": "%extension.description%",
+	"categories": [
+		"Debuggers"
+	],
 	"author": {
 		"name": "Microsoft Corporation"
 	},
+	"license": "MIT",
 	"private": true,
 	"scripts": {
-		"prepublish": "gulp build",
-		"test": "node ./node_modules/mocha/bin/mocha -u tdd ./out/tests/"
+		"prepublish": "node ./node_modules/gulp/bin/gulp.js build",
+		"build": "node ./node_modules/gulp/bin/gulp.js build",
+		"test": "node ./node_modules/mocha/bin/mocha --timeout 10000 -u tdd ./out/tests/",
+		"nodemon": "./node_modules/.bin/nodemon --debug --nolazy ./out/node/nodeDebug.js --server=4711"
 	},
 	"engines": {
 		"node": ">= 0.12.0",
 		"vscode": "^0.10.1"
 	},
 	"dependencies": {
-		"vscode-debugprotocol": "^1.6.0",
-		"vscode-debugadapter": "^1.6.0",
+		"vscode-debugprotocol": "^1.7.0",
+		"vscode-debugadapter": "^1.7.0",
 		"source-map": "^0.5.3",
 		"vscode-nls": "^1.0.4"
 	},
@@ -32,7 +38,8 @@
 	"devDependencies": {
 		"gulp": "^3.9.0",
 		"gulp-util": "^3.0.5",
-		"gulp-tsb": "*",
+		"gulp-typescript": "^2.12.0",
+		"gulp-sourcemaps": "^1.6.0",
 		"gulp-filter": "^3.0.1",
 		"gulp-azure-storage": "*",
 		"gulp-tslint": "^4.3.0",
@@ -41,9 +48,13 @@
 		"del": "*",
 		"run-sequence": "*",
 		"gulp-vinyl-zip": "*",
-		"mocha": "^2.3.4",
-		"tslint": "^3.2.2",
-		"typescript": "1.7.5"
+		"mocha": "^2.4.5",
+		"tslint": "^3.5.0",
+		"typescript": "^1.8.2",
+		"vscode-nls-dev": "^1.0.3",
+		"vscode-debugadapter-testsupport": "^1.7.0",
+		"event-stream": "^3.3.2",
+		"nodemon": "^1.9.1"
 	},
 	"contributes": {
 		"debuggers": [
@@ -113,7 +124,7 @@
 							"cwd": {
 								"type": "string",
 								"description": "%node.launch.cwd.description%",
-								"default": "."
+								"default": "${workspaceRoot}"
 							},
 							"runtimeExecutable": {
 								"type": ["string", "null"],

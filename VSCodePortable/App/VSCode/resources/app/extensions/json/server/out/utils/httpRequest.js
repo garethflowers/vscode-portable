@@ -7,7 +7,8 @@ var url_1 = require('url');
 var proxy_1 = require('./proxy');
 var https = require('https');
 var http = require('http');
-var nls = require('./nls');
+var nls = require('vscode-nls');
+var localize = nls.loadMessageBundle(__filename);
 var proxyUrl = null;
 var strictSSL = true;
 function assign(destination) {
@@ -36,10 +37,10 @@ function xhr(options) {
         res.on('data', function (c) { return data.push(c); });
         res.on('end', function () {
             if (options.followRedirects > 0 && (res.statusCode >= 300 && res.statusCode <= 303 || res.statusCode === 307)) {
-                var location_1 = res.headers['location'];
-                if (location_1) {
+                var location = res.headers['location'];
+                if (location) {
                     var newOptions = {
-                        type: options.type, url: location_1, user: options.user, password: options.password, responseType: options.responseType, headers: options.headers,
+                        type: options.type, url: location, user: options.user, password: options.password, responseType: options.responseType, headers: options.headers,
                         timeout: options.timeout, followRedirects: options.followRedirects - 1, data: options.data
                     };
                     xhr(newOptions).then(c, e);
@@ -115,25 +116,25 @@ function getErrorStatusDescription(status) {
         return void 0;
     }
     switch (status) {
-        case 400: return nls.localize('status.400', 'Bad request. The request cannot be fulfilled due to bad syntax.');
-        case 401: return nls.localize('status.401', 'Unauthorized. The server is refusing to respond.');
-        case 403: return nls.localize('status.403', 'Forbidden. The server is refusing to respond.');
-        case 404: return nls.localize('status.404', 'Not Found. The requested location could not be found.');
-        case 405: return nls.localize('status.405', 'Method not allowed. A request was made using a request method not supported by that location.');
-        case 406: return nls.localize('status.406', 'Not Acceptable. The server can only generate a response that is not accepted by the client.');
-        case 407: return nls.localize('status.407', 'Proxy Authentication Required. The client must first authenticate itself with the proxy.');
-        case 408: return nls.localize('status.408', 'Request Timeout. The server timed out waiting for the request.');
-        case 409: return nls.localize('status.409', 'Conflict. The request could not be completed because of a conflict in the request.');
-        case 410: return nls.localize('status.410', 'Gone. The requested page is no longer available.');
-        case 411: return nls.localize('status.411', 'Length Required. The "Content-Length" is not defined.');
-        case 412: return nls.localize('status.412', 'Precondition Failed. The precondition given in the request evaluated to false by the server.');
-        case 413: return nls.localize('status.413', 'Request Entity Too Large. The server will not accept the request, because the request entity is too large.');
-        case 414: return nls.localize('status.414', 'Request-URI Too Long. The server will not accept the request, because the URL is too long.');
-        case 415: return nls.localize('status.415', 'Unsupported Media Type. The server will not accept the request, because the media type is not supported.');
-        case 500: return nls.localize('status.500', 'Internal Server Error.');
-        case 501: return nls.localize('status.501', 'Not Implemented. The server either does not recognize the request method, or it lacks the ability to fulfill the request.');
-        case 503: return nls.localize('status.503', 'Service Unavailable. The server is currently unavailable (overloaded or down).');
-        default: return nls.localize('status.416', 'HTTP status code {0}', status);
+        case 400: return localize(0, null);
+        case 401: return localize(1, null);
+        case 403: return localize(2, null);
+        case 404: return localize(3, null);
+        case 405: return localize(4, null);
+        case 406: return localize(5, null);
+        case 407: return localize(6, null);
+        case 408: return localize(7, null);
+        case 409: return localize(8, null);
+        case 410: return localize(9, null);
+        case 411: return localize(10, null);
+        case 412: return localize(11, null);
+        case 413: return localize(12, null);
+        case 414: return localize(13, null);
+        case 415: return localize(14, null);
+        case 500: return localize(15, null);
+        case 501: return localize(16, null);
+        case 503: return localize(17, null);
+        default: return localize(18, null, status);
     }
 }
 exports.getErrorStatusDescription = getErrorStatusDescription;

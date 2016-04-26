@@ -50,3 +50,4 @@ var KindModifier = (function () {
     return KindModifier;
 }());
 exports.KindModifier = KindModifier;
+//# sourceMappingURL=protocol.const.js.map

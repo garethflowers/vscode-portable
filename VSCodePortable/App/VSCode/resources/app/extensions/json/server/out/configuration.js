@@ -3,13 +3,14 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 'use strict';
-var nls = require('./utils/nls');
+var nls = require('vscode-nls');
+var localize = nls.loadMessageBundle(__filename);
 exports.schemaContributions = {
     schemaAssociations: {},
     schemas: {
         // bundle the schema-schema to include (localized) descriptions
         'http://json-schema.org/draft-04/schema#': {
-            'title': nls.localize('schema.json', 'Describes a JSON file using a schema. See json-schema.org for more info.'),
+            'title': localize(0, null),
             '$schema': 'http://json-schema.org/draft-04/schema#',
             'definitions': {
                 'schemaArray': {
@@ -40,64 +41,64 @@ exports.schemaContributions = {
                 'id': {
                     'type': 'string',
                     'format': 'uri',
-                    'description': nls.localize('schema.json.id', 'A unique identifier for the schema.')
+                    'description': localize(1, null)
                 },
                 '$schema': {
                     'type': 'string',
                     'format': 'uri',
-                    'description': nls.localize('schema.json.$schema', 'The schema to verify this document against ')
+                    'description': localize(2, null)
                 },
                 'title': {
                     'type': 'string',
-                    'description': nls.localize('schema.json.title', 'A descriptive title of the element')
+                    'description': localize(3, null)
                 },
                 'description': {
                     'type': 'string',
-                    'description': nls.localize('schema.json.description', 'A long description of the element. Used in hover menus and suggestions.')
+                    'description': localize(4, null)
                 },
                 'default': {
-                    'description': nls.localize('schema.json.default', 'A default value. Used by suggestions.')
+                    'description': localize(5, null)
                 },
                 'multipleOf': {
                     'type': 'number',
                     'minimum': 0,
                     'exclusiveMinimum': true,
-                    'description': nls.localize('schema.json.multipleOf', 'A number that should cleanly divide the current value (i.e. have no remainder)')
+                    'description': localize(6, null)
                 },
                 'maximum': {
                     'type': 'number',
-                    'description': nls.localize('schema.json.maximum', 'The maximum numerical value, inclusive by default.')
+                    'description': localize(7, null)
                 },
                 'exclusiveMaximum': {
                     'type': 'boolean',
                     'default': false,
-                    'description': nls.localize('schema.json.exclusiveMaximum', 'Makes the maximum property exclusive.')
+                    'description': localize(8, null)
                 },
                 'minimum': {
                     'type': 'number',
-                    'description': nls.localize('schema.json.minimum', 'The minimum numerical value, inclusive by default.')
+                    'description': localize(9, null)
                 },
                 'exclusiveMinimum': {
                     'type': 'boolean',
                     'default': false,
-                    'description': nls.localize('schema.json.exclusiveMininum', 'Makes the minimum property exclusive.')
+                    'description': localize(10, null)
                 },
                 'maxLength': {
                     'allOf': [
                         { '$ref': '#/definitions/positiveInteger' }
                     ],
-                    'description': nls.localize('schema.json.maxLength', 'The maximum length of a string.')
+                    'description': localize(11, null)
                 },
                 'minLength': {
                     'allOf': [
                         { '$ref': '#/definitions/positiveIntegerDefault0' }
                     ],
-                    'description': nls.localize('schema.json.minLength', 'The minimum length of a string.')
+                    'description': localize(12, null)
                 },
                 'pattern': {
                     'type': 'string',
                     'format': 'regex',
-                    'description': nls.localize('schema.json.pattern', 'A regular expression to match the string against. It is not implicitly anchored.')
+                    'description': localize(13, null)
                 },
                 'additionalItems': {
                     'anyOf': [
@@ -105,7 +106,7 @@ exports.schemaContributions = {
                         { '$ref': '#' }
                     ],
                     'default': {},
-                    'description': nls.localize('schema.json.additionalItems', 'For arrays, only when items is set as an array. If it is a schema, then this schema validates items after the ones specified by the items array. If it is false, then additional items will cause validation to fail.')
+                    'description': localize(14, null)
                 },
                 'items': {
                     'anyOf': [
@@ -113,42 +114,42 @@ exports.schemaContributions = {
                         { '$ref': '#/definitions/schemaArray' }
                     ],
                     'default': {},
-                    'description': nls.localize('schema.json.items', 'For arrays. Can either be a schema to validate every element against or an array of schemas to validate each item against in order (the first schema will validate the first element, the second schema will validate the second element, and so on.')
+                    'description': localize(15, null)
                 },
                 'maxItems': {
                     'allOf': [
                         { '$ref': '#/definitions/positiveInteger' }
                     ],
-                    'description': nls.localize('schema.json.maxItems', 'The maximum number of items that can be inside an array. Inclusive.')
+                    'description': localize(16, null)
                 },
                 'minItems': {
                     'allOf': [
                         { '$ref': '#/definitions/positiveIntegerDefault0' }
                     ],
-                    'description': nls.localize('schema.json.minItems', 'The minimum number of items that can be inside an array. Inclusive.')
+                    'description': localize(17, null)
                 },
                 'uniqueItems': {
                     'type': 'boolean',
                     'default': false,
-                    'description': nls.localize('schema.json.uniqueItems', 'If all of the items in the array must be unique. Defaults to false.')
+                    'description': localize(18, null)
                 },
                 'maxProperties': {
                     'allOf': [
                         { '$ref': '#/definitions/positiveInteger' }
                     ],
-                    'description': nls.localize('schema.json.maxProperties', 'The maximum number of properties an object can have. Inclusive.')
+                    'description': localize(19, null)
                 },
                 'minProperties': {
                     'allOf': [
                         { '$ref': '#/definitions/positiveIntegerDefault0' },
                     ],
-                    'description': nls.localize('schema.json.minProperties', 'The minimum number of properties an object can have. Inclusive.')
+                    'description': localize(20, null)
                 },
                 'required': {
                     'allOf': [
                         { '$ref': '#/definitions/stringArray' }
                     ],
-                    'description': nls.localize('schema.json.required', 'An array of strings that lists the names of all properties required on this object.')
+                    'description': localize(21, null)
                 },
                 'additionalProperties': {
                     'anyOf': [
@@ -156,25 +157,25 @@ exports.schemaContributions = {
                         { '$ref': '#' }
                     ],
                     'default': {},
-                    'description': nls.localize('schema.json.additionalProperties', 'Either a schema or a boolean. If a schema, then used to validate all properties not matched by \'properties\' or \'patternProperties\'. If false, then any properties not matched by either will cause this schema to fail.')
+                    'description': localize(22, null)
                 },
                 'definitions': {
                     'type': 'object',
                     'additionalProperties': { '$ref': '#' },
                     'default': {},
-                    'description': nls.localize('schema.json.definitions', 'Not used for validation. Place subschemas here that you wish to reference inline with $ref')
+                    'description': localize(23, null)
                 },
                 'properties': {
                     'type': 'object',
                     'additionalProperties': { '$ref': '#' },
                     'default': {},
-                    'description': nls.localize('schema.json.properties', 'A map of property names to schemas for each property.')
+                    'description': localize(24, null)
                 },
                 'patternProperties': {
                     'type': 'object',
                     'additionalProperties': { '$ref': '#' },
                     'default': {},
-                    'description': nls.localize('schema.json.patternProperties', 'A map of regular expressions on property names to schemas for matching properties.')
+                    'description': localize(25, null)
                 },
                 'dependencies': {
                     'type': 'object',
@@ -184,13 +185,13 @@ exports.schemaContributions = {
                             { '$ref': '#/definitions/stringArray' }
                         ]
                     },
-                    'description': nls.localize('schema.json.dependencies', 'A map of property names to either an array of property names or a schema. An array of property names means the property named in the key depends on the properties in the array being present in the object in order to be valid. If the value is a schema, then the schema is only applied to the object if the property in the key exists on the object.')
+                    'description': localize(26, null)
                 },
                 'enum': {
                     'type': 'array',
                     'minItems': 1,
                     'uniqueItems': true,
-                    'description': nls.localize('schema.json.enum', 'The set of literal values that are valid')
+                    'description': localize(27, null)
                 },
                 'type': {
                     'anyOf': [
@@ -202,13 +203,13 @@ exports.schemaContributions = {
                             'uniqueItems': true
                         }
                     ],
-                    'description': nls.localize('schema.json.type', 'Either a string of one of the basic schema types (number, integer, null, array, object, boolean, string) or an array of strings specifying a subset of those types.')
+                    'description': localize(28, null)
                 },
                 'format': {
                     'anyOf': [
                         {
                             'type': 'string',
-                            'description': nls.localize('schema.json.format', 'Describes the format expected for the value.'),
+                            'description': localize(29, null),
                             'enum': ['date-time', 'uri', 'email', 'hostname', 'ipv4', 'ipv6', 'regex']
                         }, {
                             'type': 'string'
@@ -219,25 +220,25 @@ exports.schemaContributions = {
                     'allOf': [
                         { '$ref': '#/definitions/schemaArray' }
                     ],
-                    'description': nls.localize('schema.json.allOf', 'An array of schemas, all of which must match.')
+                    'description': localize(30, null)
                 },
                 'anyOf': {
                     'allOf': [
                         { '$ref': '#/definitions/schemaArray' }
                     ],
-                    'description': nls.localize('schema.json.anyOf', 'An array of schemas, where at least one must match.')
+                    'description': localize(31, null)
                 },
                 'oneOf': {
                     'allOf': [
                         { '$ref': '#/definitions/schemaArray' }
                     ],
-                    'description': nls.localize('schema.json.oneOf', 'An array of schemas, exactly one of which must match.')
+                    'description': localize(32, null)
                 },
                 'not': {
                     'allOf': [
                         { '$ref': '#' }
                     ],
-                    'description': nls.localize('schema.json.not', 'A schema which must not match.')
+                    'description': localize(33, null)
                 }
             },
             'dependencies': {

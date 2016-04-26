@@ -2,6 +2,7 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+"use strict";
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
@@ -10,6 +11,8 @@ var __extends = (this && this.__extends) || function (d, b) {
 var Path = require('path');
 var FS = require('fs');
 var CP = require('child_process');
+var nls = require('vscode-nls');
+var localize = nls.loadMessageBundle(__filename);
 var Terminal = (function () {
     function Terminal() {
     }
@@ -27,12 +30,15 @@ var Terminal = (function () {
     };
     Terminal.terminalService = function () {
         if (!this._terminalService) {
-            if (process.platform === 'win32')
+            if (process.platform === 'win32') {
                 this._terminalService = new WindowsTerminalService();
-            else if (process.platform === 'darwin')
+            }
+            else if (process.platform === 'darwin') {
                 this._terminalService = new MacTerminalService();
-            else if (process.platform === 'linux')
+            }
+            else if (process.platform === 'linux') {
                 this._terminalService = new LinuxTerminalService();
+            }
             else {
                 this._terminalService = new DefaultTerminalService();
             }
@@ -40,13 +46,23 @@ var Terminal = (function () {
         return this._terminalService;
     };
     return Terminal;
-})();
+}());
 exports.Terminal = Terminal;
+var TerminalError = (function () {
+    function TerminalError(message, linkId) {
+        this.message = message;
+        this.linkId = linkId;
+    }
+    return TerminalError;
+}());
+exports.TerminalError = TerminalError;
 var DefaultTerminalService = (function () {
     function DefaultTerminalService() {
     }
     DefaultTerminalService.prototype.launchInTerminal = function (dir, args, envVars) {
-        throw new Error('launchInTerminal not implemented');
+        return new Promise(function (resolve, reject) {
+            reject(new TerminalError(localize(0, null, process.platform)));
+        });
     };
     DefaultTerminalService.prototype.killTree = function (pid) {
         // on linux and OS X we kill all direct and indirect child processes as well
@@ -67,28 +83,20 @@ var DefaultTerminalService = (function () {
         });
     };
     DefaultTerminalService.prototype.isOnPath = function (program) {
-        /*
-        var which = FS.existsSync(DefaultTerminalService.WHICH) ? DefaultTerminalService.WHICH : DefaultTerminalService.WHERE;
-        var cmd = Utils.format('{0} \'{1}\'', which, program);
-
         try {
-            CP.execSync(cmd);
-
-            return process.ExitCode == 0;
+            if (!FS.existsSync(DefaultTerminalService.WHICH)) {
+                CP.execSync(DefaultTerminalService.WHICH + " '" + program + "'");
+            }
+            return true;
         }
         catch (Exception) {
-            // ignore
         }
-
         return false;
-        */
-        return true;
     };
-    DefaultTerminalService.TERMINAL_TITLE = "VS Code Console";
+    DefaultTerminalService.TERMINAL_TITLE = localize(1, null);
     DefaultTerminalService.WHICH = '/usr/bin/which';
-    DefaultTerminalService.WHERE = 'where';
     return DefaultTerminalService;
-})();
+}());
 var WindowsTerminalService = (function (_super) {
     __extends(WindowsTerminalService, _super);
     function WindowsTerminalService() {
@@ -128,9 +136,19 @@ var WindowsTerminalService = (function (_super) {
             }
         });
     };
+    WindowsTerminalService.prototype.isOnPath = function (program) {
+        try {
+            CP.execSync(WindowsTerminalService.WHERE + " " + program);
+            return true;
+        }
+        catch (Exception) {
+        }
+        return false;
+    };
     WindowsTerminalService.CMD = 'cmd.exe';
+    WindowsTerminalService.WHERE = 'where';
     return WindowsTerminalService;
-})(DefaultTerminalService);
+}(DefaultTerminalService));
 var LinuxTerminalService = (function (_super) {
     __extends(LinuxTerminalService, _super);
     function LinuxTerminalService() {
@@ -139,10 +157,10 @@ var LinuxTerminalService = (function (_super) {
     LinuxTerminalService.prototype.launchInTerminal = function (dir, args, envVars) {
         return new Promise(function (resolve, reject) {
             if (!FS.existsSync(LinuxTerminalService.LINUX_TERM)) {
-                reject(new Error("Cannot find '" + LinuxTerminalService.LINUX_TERM + "' for launching the node program. See http://go.microsoft.com/fwlink/?linkID=534832#_20002"));
+                reject(new TerminalError(localize(2, null, LinuxTerminalService.LINUX_TERM), 20002));
                 return;
             }
-            var bashCommand = "cd \"" + dir + "\"; \"" + args.join('" "') + "\"; echo; read -p \"" + LinuxTerminalService.WAIT_MESSAGE + "\" -n1;";
+            var bashCommand = quote(args) + "; echo; read -p \"" + LinuxTerminalService.WAIT_MESSAGE + "\" -n1;";
             var termArgs = [
                 '--title', ("\"" + LinuxTerminalService.TERMINAL_TITLE + "\""),
                 '-x', 'bash', '-c',
@@ -151,6 +169,7 @@ var LinuxTerminalService = (function (_super) {
             // merge environment variables into a copy of the process.env
             var env = extendObject(extendObject({}, process.env), envVars);
             var options = {
+                cwd: dir,
                 env: env
             };
             var cmd = CP.spawn(LinuxTerminalService.LINUX_TERM, termArgs, options);
@@ -160,15 +179,15 @@ var LinuxTerminalService = (function (_super) {
                     resolve(); // since cmd is not the terminal process but just a launcher, we do not pass it in the resolve to the caller
                 }
                 else {
-                    reject(new Error("exit code: " + code));
+                    reject(new TerminalError(localize(3, null, LinuxTerminalService.LINUX_TERM, code)));
                 }
             });
         });
     };
     LinuxTerminalService.LINUX_TERM = '/usr/bin/gnome-terminal'; //private const string LINUX_TERM = "/usr/bin/x-terminal-emulator";
-    LinuxTerminalService.WAIT_MESSAGE = "Press any key to continue...";
+    LinuxTerminalService.WAIT_MESSAGE = localize(4, null);
     return LinuxTerminalService;
-})(DefaultTerminalService);
+}(DefaultTerminalService));
 var MacTerminalService = (function (_super) {
     __extends(MacTerminalService, _super);
     function MacTerminalService() {
@@ -185,8 +204,8 @@ var MacTerminalService = (function (_super) {
                 '-t', MacTerminalService.TERMINAL_TITLE,
                 '-w', dir,
             ];
-            for (var _i = 0; _i < args.length; _i++) {
-                var a = args[_i];
+            for (var _i = 0, args_1 = args; _i < args_1.length; _i++) {
+                var a = args_1[_i];
                 osaArgs.push('-pa');
                 osaArgs.push(a);
             }
@@ -207,18 +226,37 @@ var MacTerminalService = (function (_super) {
                     resolve(); // since cmd is not the terminal process but just the osa tool, we do not pass it in the resolve to the caller
                 }
                 else {
-                    if (stderr)
-                        reject(new Error(stderr));
-                    else
-                        reject(new Error("exit code: " + code));
+                    if (stderr) {
+                        reject(new TerminalError(stderr));
+                    }
+                    else {
+                        reject(new TerminalError(localize(5, null, MacTerminalService.OSASCRIPT, code)));
+                    }
                 }
             });
         });
     };
     MacTerminalService.OSASCRIPT = '/usr/bin/osascript'; // osascript is the AppleScript interpreter on OS X
     return MacTerminalService;
-})(DefaultTerminalService);
+}(DefaultTerminalService));
 // ---- private utilities ----
+/**
+ * Quote args if necessary and combine into a space separated string.
+ */
+function quote(args) {
+    var r = '';
+    for (var _i = 0, args_2 = args; _i < args_2.length; _i++) {
+        var a = args_2[_i];
+        if (a.indexOf(' ') >= 0) {
+            r += '"' + a + '"';
+        }
+        else {
+            r += a;
+        }
+        r += ' ';
+    }
+    return r;
+}
 function extendObject(objectCopy, object) {
     for (var key in object) {
         if (object.hasOwnProperty(key)) {
@@ -227,4 +265,5 @@ function extendObject(objectCopy, object) {
     }
     return objectCopy;
 }
-//# sourceMappingURL=terminal.js.map
+
+//# sourceMappingURL=../../out/node/terminal.js.map

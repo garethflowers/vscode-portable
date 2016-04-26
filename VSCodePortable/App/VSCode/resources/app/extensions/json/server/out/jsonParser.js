@@ -8,9 +8,10 @@ var __extends = (this && this.__extends) || function (d, b) {
     function __() { this.constructor = d; }
     d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 };
-var nls = require('./utils/nls');
 var Json = require('./json-toolbox/json');
 var jsonLocation_1 = require('./jsonLocation');
+var nls = require('vscode-nls');
+var localize = nls.loadMessageBundle(__filename);
 var ASTNode = (function () {
     function ASTNode(parent, type, name, start, end) {
         this.type = type;
@@ -82,7 +83,7 @@ var ASTNode = (function () {
             if (schema.type.indexOf(this.type) === -1) {
                 validationResult.warnings.push({
                     location: { start: this.start, end: this.end },
-                    message: nls.localize('typeArrayMismatchWarning', 'Incorrect type. Expected one of {0}', schema.type.join(', '))
+                    message: schema.errorMessage || localize(0, null, schema.type.join(', '))
                 });
             }
         }
@@ -90,7 +91,7 @@ var ASTNode = (function () {
             if (this.type !== schema.type) {
                 validationResult.warnings.push({
                     location: { start: this.start, end: this.end },
-                    message: nls.localize('typeMismatchWarning', 'Incorrect type. Expected "{0}"', schema.type)
+                    message: schema.errorMessage || localize(1, null, schema.type)
                 });
             }
         }
@@ -106,7 +107,7 @@ var ASTNode = (function () {
             if (!subValidationResult.hasErrors()) {
                 validationResult.warnings.push({
                     location: { start: this.start, end: this.end },
-                    message: nls.localize('notSchemaWarning', "Matches a schema that is not allowed.")
+                    message: localize(2, null)
                 });
             }
             if (matchingSchemas) {
@@ -153,7 +154,7 @@ var ASTNode = (function () {
             if (matches.length > 1 && maxOneMatch) {
                 validationResult.warnings.push({
                     location: { start: _this.start, end: _this.start + 1 },
-                    message: nls.localize('oneOfWarning', "Matches multiple schemas when only one must validate.")
+                    message: localize(3, null)
                 });
             }
             if (bestMatch !== null) {
@@ -176,7 +177,7 @@ var ASTNode = (function () {
             if (schema.enum.indexOf(this.getValue()) === -1) {
                 validationResult.warnings.push({
                     location: { start: this.start, end: this.end },
-                    message: nls.localize('enumWarning', 'Value is not an accepted value. Valid values: {0}', JSON.stringify(schema.enum))
+                    message: localize(4, null, JSON.stringify(schema.enum))
                 });
             }
             else {
@@ -247,26 +248,26 @@ var ArrayASTNode = (function (_super) {
         }
         _super.prototype.validate.call(this, schema, validationResult, matchingSchemas, offset);
         if (Array.isArray(schema.items)) {
-            var subSchemas = schema.items;
-            subSchemas.forEach(function (subSchema, index) {
+            var subSchemas_1 = schema.items;
+            subSchemas_1.forEach(function (subSchema, index) {
                 var itemValidationResult = new ValidationResult();
                 var item = _this.items[index];
                 if (item) {
                     item.validate(subSchema, itemValidationResult, matchingSchemas, offset);
                     validationResult.mergePropertyMatch(itemValidationResult);
                 }
-                else if (_this.items.length >= schema.items.length) {
+                else if (_this.items.length >= subSchemas_1.length) {
                     validationResult.propertiesValueMatches++;
                 }
             });
-            if (schema.additionalItems === false && this.items.length > subSchemas.length) {
+            if (schema.additionalItems === false && this.items.length > subSchemas_1.length) {
                 validationResult.warnings.push({
                     location: { start: this.start, end: this.end },
-                    message: nls.localize('additionalItemsWarning', 'Array has too many items according to schema. Expected {0} or fewer', subSchemas.length)
+                    message: localize(5, null, subSchemas_1.length)
                 });
             }
-            else if (this.items.length >= schema.items.length) {
-                validationResult.propertiesValueMatches += (this.items.length - schema.items.length);
+            else if (this.items.length >= subSchemas_1.length) {
+                validationResult.propertiesValueMatches += (this.items.length - subSchemas_1.length);
             }
         }
         else if (schema.items) {
@@ -279,13 +280,13 @@ var ArrayASTNode = (function (_super) {
         if (schema.minItems && this.items.length < schema.minItems) {
             validationResult.warnings.push({
                 location: { start: this.start, end: this.end },
-                message: nls.localize('minItemsWarning', 'Array has too few items. Expected {0} or more', schema.minItems)
+                message: localize(6, null, schema.minItems)
             });
         }
         if (schema.maxItems && this.items.length > schema.maxItems) {
             validationResult.warnings.push({
                 location: { start: this.start, end: this.end },
-                message: nls.localize('maxItemsWarning', 'Array has too many items. Expected {0} or fewer', schema.minItems)
+                message: localize(7, null, schema.minItems)
             });
         }
         if (schema.uniqueItems === true) {
@@ -298,7 +299,7 @@ var ArrayASTNode = (function (_super) {
             if (duplicates) {
                 validationResult.warnings.push({
                     location: { start: this.start, end: this.end },
-                    message: nls.localize('uniqueItemsWarning', 'Array has duplicate items')
+                    message: localize(8, null)
                 });
             }
         }
@@ -336,7 +337,7 @@ var NumberASTNode = (function (_super) {
             if (val % schema.multipleOf !== 0) {
                 validationResult.warnings.push({
                     location: { start: this.start, end: this.end },
-                    message: nls.localize('multipleOfWarning', 'Value is not divisible by {0}', schema.multipleOf)
+                    message: localize(9, null, schema.multipleOf)
                 });
             }
         }
@@ -344,13 +345,13 @@ var NumberASTNode = (function (_super) {
             if (schema.exclusiveMinimum && val <= schema.minimum) {
                 validationResult.warnings.push({
                     location: { start: this.start, end: this.end },
-                    message: nls.localize('exclusiveMinimumWarning', 'Value is below the exclusive minimum of {0}', schema.minimum)
+                    message: localize(10, null, schema.minimum)
                 });
             }
             if (!schema.exclusiveMinimum && val < schema.minimum) {
                 validationResult.warnings.push({
                     location: { start: this.start, end: this.end },
-                    message: nls.localize('minimumWarning', 'Value is below the minimum of {0}', schema.minimum)
+                    message: localize(11, null, schema.minimum)
                 });
             }
         }
@@ -358,13 +359,13 @@ var NumberASTNode = (function (_super) {
             if (schema.exclusiveMaximum && val >= schema.maximum) {
                 validationResult.warnings.push({
                     location: { start: this.start, end: this.end },
-                    message: nls.localize('exclusiveMaximumWarning', 'Value is above the exclusive maximum of {0}', schema.maximum)
+                    message: localize(12, null, schema.maximum)
                 });
             }
             if (!schema.exclusiveMaximum && val > schema.maximum) {
                 validationResult.warnings.push({
                     location: { start: this.start, end: this.end },
-                    message: nls.localize('maximumWarning', 'Value is above the maximum of {0}', schema.maximum)
+                    message: localize(13, null, schema.maximum)
                 });
             }
         }
@@ -391,13 +392,13 @@ var StringASTNode = (function (_super) {
         if (schema.minLength && this.value.length < schema.minLength) {
             validationResult.warnings.push({
                 location: { start: this.start, end: this.end },
-                message: nls.localize('minLengthWarning', 'String is shorter than the minimum length of ', schema.minLength)
+                message: localize(14, null, schema.minLength)
             });
         }
         if (schema.maxLength && this.value.length > schema.maxLength) {
             validationResult.warnings.push({
                 location: { start: this.start, end: this.end },
-                message: nls.localize('maxLengthWarning', 'String is shorter than the maximum length of ', schema.maxLength)
+                message: localize(15, null, schema.maxLength)
             });
         }
         if (schema.pattern) {
@@ -405,7 +406,7 @@ var StringASTNode = (function (_super) {
             if (!regex.test(this.value)) {
                 validationResult.warnings.push({
                     location: { start: this.start, end: this.end },
-                    message: schema.errorMessage || nls.localize('patternWarning', 'String does not match the pattern of "{0}"', schema.pattern)
+                    message: schema.errorMessage || localize(16, null, schema.pattern)
                 });
             }
         }
@@ -506,10 +507,10 @@ var ObjectASTNode = (function (_super) {
             schema.required.forEach(function (propertyName) {
                 if (!seenKeys[propertyName]) {
                     var key = _this.parent && _this.parent && _this.parent.key;
-                    var location_1 = key ? { start: key.start, end: key.end } : { start: _this.start, end: _this.start + 1 };
+                    var location = key ? { start: key.start, end: key.end } : { start: _this.start, end: _this.start + 1 };
                     validationResult.warnings.push({
-                        location: location_1,
-                        message: nls.localize('MissingRequiredPropWarning', 'Missing property "{0}"', propertyName)
+                        location: location,
+                        message: localize(17, null, propertyName)
                     });
                 }
             });
@@ -567,7 +568,7 @@ var ObjectASTNode = (function (_super) {
                         var propertyNode = child.parent;
                         validationResult.warnings.push({
                             location: { start: propertyNode.key.start, end: propertyNode.key.end },
-                            message: nls.localize('DisallowedExtraPropWarning', 'Property {0} is not allowed', propertyName)
+                            message: localize(18, null, propertyName)
                         });
                     }
                 });
@@ -577,7 +578,7 @@ var ObjectASTNode = (function (_super) {
             if (this.properties.length > schema.maxProperties) {
                 validationResult.warnings.push({
                     location: { start: this.start, end: this.end },
-                    message: nls.localize('MaxPropWarning', 'Object has more properties than limit of {0}', schema.maxProperties)
+                    message: localize(19, null, schema.maxProperties)
                 });
             }
         }
@@ -585,7 +586,7 @@ var ObjectASTNode = (function (_super) {
             if (this.properties.length < schema.minProperties) {
                 validationResult.warnings.push({
                     location: { start: this.start, end: this.end },
-                    message: nls.localize('MinPropWarning', 'Object has fewer properties than the required number of {0}', schema.minProperties)
+                    message: localize(20, null, schema.minProperties)
                 });
             }
         }
@@ -599,7 +600,7 @@ var ObjectASTNode = (function (_super) {
                             if (!seenKeys[requiredProp]) {
                                 validationResult.warnings.push({
                                     location: { start: _this.start, end: _this.end },
-                                    message: nls.localize('RequiredDependentPropWarning', 'Object is missing property {0} required by property {1}', requiredProp, key)
+                                    message: localize(21, null, requiredProp, key)
                                 });
                             }
                             else {
@@ -752,19 +753,19 @@ function parse(text, config) {
     function _checkScanError() {
         switch (_scanner.getTokenError()) {
             case Json.ScanError.InvalidUnicode:
-                _error(nls.localize('InvalidUnicode', 'Invalid unicode sequence in string'));
+                _error(localize(22, null));
                 return true;
             case Json.ScanError.InvalidEscapeCharacter:
-                _error(nls.localize('InvalidEscapeCharacter', 'Invalid escape character in string'));
+                _error(localize(23, null));
                 return true;
             case Json.ScanError.UnexpectedEndOfNumber:
-                _error(nls.localize('UnexpectedEndOfNumber', 'Unexpected end of number'));
+                _error(localize(24, null));
                 return true;
             case Json.ScanError.UnexpectedEndOfComment:
-                _error(nls.localize('UnexpectedEndOfComment', 'Unexpected end of comment'));
+                _error(localize(25, null));
                 return true;
             case Json.ScanError.UnexpectedEndOfString:
-                _error(nls.localize('UnexpectedEndOfString', 'Unexpected end of string'));
+                _error(localize(26, null));
                 return true;
         }
         return false;
@@ -786,12 +787,12 @@ function parse(text, config) {
         if (node.addItem(_parseValue(node, '' + count++))) {
             while (_accept(Json.SyntaxKind.CommaToken)) {
                 if (!node.addItem(_parseValue(node, '' + count++)) && !_doc.config.ignoreDanglingComma) {
-                    _error(nls.localize('ValueExpected', 'Value expected'));
+                    _error(localize(27, null));
                 }
             }
         }
         if (_scanner.getToken() !== Json.SyntaxKind.CloseBracketToken) {
-            return _error(nls.localize('ExpectedCloseBracket', 'Expected comma or closing bracket'), node);
+            return _error(localize(28, null), node);
         }
         return _finalize(node, true);
     }
@@ -802,25 +803,25 @@ function parse(text, config) {
                 // give a more helpful error message
                 var value = _scanner.getTokenValue();
                 if (value.length > 0 && (value.charAt(0) === '\'' || Json.isLetter(value.charAt(0).charCodeAt(0)))) {
-                    _error(nls.localize('DoubleQuotesExpected', 'Property keys must be doublequoted'));
+                    _error(localize(29, null));
                 }
             }
             return null;
         }
         var node = new PropertyASTNode(parent, key);
         if (keysSeen[key.value]) {
-            _doc.warnings.push({ location: { start: node.key.start, end: node.key.end }, message: nls.localize('DuplicateKeyWarning', "Duplicate object key") });
+            _doc.warnings.push({ location: { start: node.key.start, end: node.key.end }, message: localize(30, null) });
         }
         keysSeen[key.value] = true;
         if (_scanner.getToken() === Json.SyntaxKind.ColonToken) {
             node.colonOffset = _scanner.getTokenOffset();
         }
         else {
-            return _error(nls.localize('ColonExpected', 'Colon expected'), node, [], [Json.SyntaxKind.CloseBraceToken, Json.SyntaxKind.CommaToken]);
+            return _error(localize(31, null), node, [], [Json.SyntaxKind.CloseBraceToken, Json.SyntaxKind.CommaToken]);
         }
         _scanner.scan(); // consume ColonToken
         if (!node.setValue(_parseValue(node, key.value))) {
-            return _error(nls.localize('ValueExpected', 'Value expected'), node, [], [Json.SyntaxKind.CloseBraceToken, Json.SyntaxKind.CommaToken]);
+            return _error(localize(32, null), node, [], [Json.SyntaxKind.CloseBraceToken, Json.SyntaxKind.CommaToken]);
         }
         node.end = node.value.end;
         return node;
@@ -835,12 +836,12 @@ function parse(text, config) {
         if (node.addProperty(_parseProperty(node, keysSeen))) {
             while (_accept(Json.SyntaxKind.CommaToken)) {
                 if (!node.addProperty(_parseProperty(node, keysSeen)) && !_doc.config.ignoreDanglingComma) {
-                    _error(nls.localize('PropertyExpected', 'Property expected'));
+                    _error(localize(33, null));
                 }
             }
         }
         if (_scanner.getToken() !== Json.SyntaxKind.CloseBraceToken) {
-            return _error(nls.localize('ExpectedCloseBrace', 'Expected comma or closing brace'), node);
+            return _error(localize(34, null), node);
         }
         return _finalize(node, true);
     }
@@ -863,12 +864,12 @@ function parse(text, config) {
             try {
                 var numberValue = JSON.parse(tokenValue);
                 if (typeof numberValue !== 'number') {
-                    return _error(nls.localize('InvalidNumberFormat', 'Invalid number format'), node);
+                    return _error(localize(35, null), node);
                 }
                 node.value = numberValue;
             }
             catch (e) {
-                return _error(nls.localize('InvalidNumberFormat', 'Invalid number format'), node);
+                return _error(localize(36, null), node);
             }
             node.isInteger = tokenValue.indexOf('.') === -1;
         }
@@ -897,10 +898,10 @@ function parse(text, config) {
     _scanner.scan();
     _doc.root = _parseValue(null, null);
     if (!_doc.root) {
-        _error(nls.localize('Invalid symbol', 'Expected a JSON object, array or literal'));
+        _error(localize(37, null));
     }
     else if (_scanner.getToken() !== Json.SyntaxKind.EOF) {
-        _error(nls.localize('End of file expected', 'End of file expected'));
+        _error(localize(38, null));
     }
     return _doc;
 }

@@ -5,8 +5,9 @@
 'use strict';
 var vscode_languageserver_1 = require('vscode-languageserver');
 var Strings = require('../utils/strings');
-var nls = require('../utils/nls');
 var httpRequest_1 = require('../utils/httpRequest');
+var nls = require('vscode-nls');
+var localize = nls.loadMessageBundle(__filename);
 var FEED_INDEX_URL = 'https://api.nuget.org/v3/index.json';
 var LIMIT = 30;
 var RESOLVE_ID = 'ProjectJSONContribution-';
@@ -40,10 +41,10 @@ var ProjectJSONContribution = (function () {
         this.cacheSize++;
         if (this.cacheSize > 50) {
             var currentTime = new Date().getTime();
-            for (var id in this.cachedProjects) {
-                var entry = this.cachedProjects[id];
+            for (var id_1 in this.cachedProjects) {
+                var entry = this.cachedProjects[id_1];
                 if (currentTime - entry.time > CACHE_EXPIRY) {
-                    delete this.cachedProjects[id];
+                    delete this.cachedProjects[id_1];
                     this.cacheSize--;
                 }
             }
@@ -72,7 +73,7 @@ var ProjectJSONContribution = (function () {
         return this.getNugetIndex().then(function (services) {
             var serviceURL = services[serviceType];
             if (!serviceURL) {
-                return Promise.reject(nls.localize('json.nugget.error.missingservice', 'NuGet index document is missing service {0}', serviceType));
+                return Promise.reject(localize(0, null, serviceType));
             }
             return serviceURL;
         });
@@ -87,7 +88,7 @@ var ProjectJSONContribution = (function () {
                     'dnxcore50': {}
                 }
             };
-            result.add({ kind: vscode_languageserver_1.CompletionItemKind.Class, label: nls.localize('json.project.default', 'Default project.json'), insertText: JSON.stringify(defaultValue, null, '\t'), documentation: '' });
+            result.add({ kind: vscode_languageserver_1.CompletionItemKind.Class, label: localize(1, null), insertText: JSON.stringify(defaultValue, null, '\t'), documentation: '' });
         }
         return null;
     };
@@ -100,12 +101,12 @@ var ProjectJSONContribution = (function () {
                     return JSON.parse(success.responseText);
                 }
                 catch (e) {
-                    return Promise.reject(nls.localize('json.nugget.error.invalidformat', '{0} is not a valid JSON document', url));
+                    return Promise.reject(localize(2, null, url));
                 }
             }
-            return Promise.reject(nls.localize('json.nugget.error.indexaccess', 'Request to {0} failed: {1}', url, success.responseText));
+            return Promise.reject(localize(3, null, url, success.responseText));
         }, function (error) {
-            return Promise.reject(nls.localize('json.nugget.error.access', 'Request to {0} failed: {1}', url, httpRequest_1.getErrorStatusDescription(error.status)));
+            return Promise.reject(localize(4, null, url, httpRequest_1.getErrorStatusDescription(error.status)));
         });
     };
     ProjectJSONContribution.prototype.collectPropertySuggestions = function (resource, location, currentWord, addValue, isLast, result) {
@@ -123,17 +124,17 @@ var ProjectJSONContribution = (function () {
                     if (Array.isArray(resultObj.data)) {
                         var results = resultObj.data;
                         for (var i = 0; i < results.length; i++) {
-                            var name_1 = results[i];
-                            var insertText = JSON.stringify(name_1);
+                            var name = results[i];
+                            var insertText = JSON.stringify(name);
                             if (addValue) {
                                 insertText += ': "{{}}"';
                                 if (!isLast) {
                                     insertText += ',';
                                 }
                             }
-                            var item = { kind: vscode_languageserver_1.CompletionItemKind.Property, label: name_1, insertText: insertText };
-                            if (!_this.completeWithCache(name_1, item)) {
-                                item.data = RESOLVE_ID + name_1;
+                            var item = { kind: vscode_languageserver_1.CompletionItemKind.Property, label: name, insertText: insertText };
+                            if (!_this.completeWithCache(name, item)) {
+                                item.data = RESOLVE_ID + name;
                             }
                             result.add(item);
                         }
@@ -161,10 +162,10 @@ var ProjectJSONContribution = (function () {
                         var results = obj.versions;
                         for (var i = 0; i < results.length; i++) {
                             var curr = results[i];
-                            var name_2 = JSON.stringify(curr);
-                            var label = name_2;
+                            var name = JSON.stringify(curr);
+                            var label = name;
                             var documentation = '';
-                            result.add({ kind: vscode_languageserver_1.CompletionItemKind.Class, label: label, insertText: name_2, documentation: documentation });
+                            result.add({ kind: vscode_languageserver_1.CompletionItemKind.Class, label: label, insertText: name, documentation: documentation });
                         }
                         if (results.length === LIMIT) {
                             result.setAsIncomplete();
@@ -187,7 +188,7 @@ var ProjectJSONContribution = (function () {
                 var queryUrl = service + '?q=' + encodeURIComponent(pack_1) + '&take=' + 5;
                 return _this.makeJSONRequest(queryUrl).then(function (resultObj) {
                     var htmlContent = [];
-                    htmlContent.push(nls.localize('json.nugget.package.hover', '{0}', pack_1));
+                    htmlContent.push(localize(5, null, pack_1));
                     if (Array.isArray(resultObj.data)) {
                         var results = resultObj.data;
                         for (var i = 0; i < results.length; i++) {
@@ -198,7 +199,7 @@ var ProjectJSONContribution = (function () {
                                     htmlContent.push(res.description);
                                 }
                                 if (res.version) {
-                                    htmlContent.push(nls.localize('json.nugget.version.hover', 'Latest version: {0}', res.version));
+                                    htmlContent.push(localize(6, null, res.version));
                                 }
                                 break;
                             }

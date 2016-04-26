@@ -2,6 +2,7 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+"use strict";
 var Path = require('path');
 var FS = require('fs');
 /**
@@ -73,7 +74,7 @@ function realPath(path) {
     try {
         var entries = FS.readdirSync(dir);
         var found = entries.filter(function (e) { return e.toLowerCase() === name; }); // use a case insensitive search
-        if (found.length == 1) {
+        if (found.length === 1) {
             // on a case sensitive filesystem we cannot determine here, whether the file exists or not, hence we need the 'file exists' precondition
             var prefix = realPath(dir); // recurse
             if (prefix) {
@@ -81,11 +82,12 @@ function realPath(path) {
             }
         }
         else if (found.length > 1) {
-            // must be a case sensitive filesystem
-            if (found.indexOf(name) >= 0) {
+            // must be a case sensitive $filesystem
+            var ix = found.indexOf(name);
+            if (ix >= 0) {
                 var prefix = realPath(dir); // recurse
                 if (prefix) {
-                    return Path.join(prefix, found[0]);
+                    return Path.join(prefix, found[ix]);
                 }
             }
         }
@@ -176,4 +178,5 @@ function makeRelative2(from, to) {
     return tos.join('/');
 }
 exports.makeRelative2 = makeRelative2;
-//# sourceMappingURL=pathUtilities.js.map
+
+//# sourceMappingURL=../../out/node/pathUtilities.js.map

@@ -29,3 +29,4 @@ function plain(parts) {
     return parts.map(function (part) { return part.text; }).join('');
 }
 exports.plain = plain;
+//# sourceMappingURL=previewer.js.map

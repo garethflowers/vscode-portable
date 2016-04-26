@@ -21,8 +21,10 @@ var log = (function () {
 })();
 var stdInPipeName = process.env['STDIN_PIPE_NAME'];
 var stdOutPipeName = process.env['STDOUT_PIPE_NAME'];
+var stdErrPipeName = process.env['STDERR_PIPE_NAME'];
 log('STDIN_PIPE_NAME: ' + stdInPipeName);
 log('STDOUT_PIPE_NAME: ' + stdOutPipeName);
+log('STDERR_PIPE_NAME: ' + stdErrPipeName);
 log('ATOM_SHELL_INTERNAL_RUN_AS_NODE: ' + process.env['ATOM_SHELL_INTERNAL_RUN_AS_NODE']);
 // stdout redirection to named pipe
 (function () {
@@ -33,8 +35,12 @@ log('ATOM_SHELL_INTERNAL_RUN_AS_NODE: ' + process.env['ATOM_SHELL_INTERNAL_RUN_A
     stdOutStream.unref();
     // handle process.stdout
     process.__defineGetter__('stdout', function () { return stdOutStream; });
+    // Create a writing stream to the stderr pipe
+    var stdErrStream = net.connect(stdErrPipeName);
+    // unref stdErrStream to behave like a normal standard out
+    stdErrStream.unref();
     // handle process.stderr
-    process.__defineGetter__('stderr', function () { return stdOutStream; });
+    process.__defineGetter__('stderr', function () { return stdErrStream; });
     var fsWriteSyncString = function (fd, str, position, encoding) {
         //  fs.writeSync(fd, string[, position[, encoding]]);
         var buf = new Buffer(str, encoding || 'utf8');
@@ -62,13 +68,18 @@ log('ATOM_SHELL_INTERNAL_RUN_AS_NODE: ' + process.env['ATOM_SHELL_INTERNAL_RUN_A
         if (off !== 0 || len !== buffer_length) {
             slicedBuffer = buffer.slice(off, off + len);
         }
-        stdOutStream.write(slicedBuffer);
+        if (fd === 1) {
+            stdOutStream.write(slicedBuffer);
+        }
+        else {
+            stdErrStream.write(slicedBuffer);
+        }
         return slicedBuffer.length;
     };
     // handle fs.writeSync(1, ...)
     var originalWriteSync = fs.writeSync;
     fs.writeSync = function (fd, data, position, encoding) {
-        if (fd !== 1) {
+        if (fd !== 1 || fd !== 2) {
             return originalWriteSync.apply(fs, arguments);
         }
         // usage:
@@ -105,6 +116,7 @@ log('ATOM_SHELL_INTERNAL_RUN_AS_NODE: ' + process.env['ATOM_SHELL_INTERNAL_RUN_A
         // Unset the custom environmental variables that should not get inherited
         delete process.env['STDIN_PIPE_NAME'];
         delete process.env['STDOUT_PIPE_NAME'];
+        delete process.env['STDERR_PIPE_NAME'];
         delete process.env['ATOM_SHELL_INTERNAL_RUN_AS_NODE'];
         require(program);
         log('Finished loading program.');
@@ -137,10 +149,13 @@ log('ATOM_SHELL_INTERNAL_RUN_AS_NODE: ' + process.env['ATOM_SHELL_INTERNAL_RUN_A
             // 	' ' + stream.listeners('error').length
             // );
         }, 1000);
-        timer.unref();
+        if (timer.unref) {
+            timer.unref();
+        }
     });
     server.listen(stdInPipeName, function () {
         // signal via stdout that the parent process can now begin writing to stdin pipe
         process.stdout.write('ready');
     });
 })();
+//# sourceMappingURL=electronForkStart.js.map

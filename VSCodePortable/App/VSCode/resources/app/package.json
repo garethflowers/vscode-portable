@@ -1,6 +1,6 @@
 {
   "name": "Code",
-  "version": "0.10.11",
+  "version": "1.0.0",
   "electronVersion": "0.35.6",
   "author": {
     "name": "Microsoft Corporation"
@@ -11,9 +11,10 @@
     "node": ">= 0.10.0 < 0.11.0"
   },
   "scripts": {
-    "test": "node node_modules/mocha/bin/_mocha",
+    "test": "mocha",
     "preinstall": "node build/npm/preinstall.js",
-    "postinstall": "npm --prefix extensions/vscode-api-tests/ install extensions/vscode-api-tests/ && npm --prefix extensions/json/ install extensions/json/ && npm --prefix extensions/typescript/ install extensions/typescript/"
+    "postinstall": "npm --prefix extensions/vscode-api-tests/ install extensions/vscode-api-tests/ && npm --prefix extensions/json/ install extensions/json/ && npm --prefix extensions/typescript/ install extensions/typescript/ && npm --prefix extensions/php/ install extensions/php/",
+    "watch": "gulp watch"
   },
   "dependencies": {
     "applicationinsights": "0.15.6",
@@ -27,7 +28,7 @@
     "native-keymap": "^0.1.2",
     "sax": "^1.1.1",
     "semver": "^4.2.0",
-    "vscode-debugprotocol": "^1.5.0",
+    "vscode-debugprotocol": "^1.6.1",
     "vscode-textmate": "^1.0.11",
     "weak": "^1.0.1",
     "winreg": "0.0.12",
@@ -42,10 +43,10 @@
     "documentdb": "^1.5.1",
     "event-stream": "^3.1.7",
     "express": "^4.13.1",
-    "ghooks": "^1.0.1",
+    "ghooks": "1.0.3",
     "glob": "^5.0.13",
     "gulp": "^3.8.9",
-    "gulp-atom-electron": "^1.4.0",
+    "gulp-atom-electron": "^1.5.2",
     "gulp-azure-storage": "^0.6.0",
     "gulp-bom": "^1.0.0",
     "gulp-buffer": "0.0.2",
@@ -64,12 +65,12 @@
     "gulp-tslint": "^4.3.0",
     "gulp-uglify": "^1.4.1",
     "gulp-util": "^3.0.6",
-    "gulp-vinyl-zip": "^1.1.0",
+    "gulp-vinyl-zip": "^1.2.2",
     "gulp-watch": "^4.2.4",
     "innosetup-compiler": "^5.5.60",
+    "is": "^3.1.0",
     "istanbul": "^0.3.17",
     "jsdom-no-contextify": "^3.1.0",
-    "json-comments": "^0.2.1",
     "lazy.js": "^0.4.2",
     "mime": "1.2.11",
     "minimatch": "^2.0.10",
@@ -85,7 +86,8 @@
     "typescript": "^1.8.0",
     "uglify-js": "2.4.8",
     "underscore": "^1.8.2",
-    "vinyl": "^0.4.5"
+    "vinyl": "^0.4.5",
+    "vscode-nls-dev": "^1.0.0"
   },
   "repository": {
     "type": "git",

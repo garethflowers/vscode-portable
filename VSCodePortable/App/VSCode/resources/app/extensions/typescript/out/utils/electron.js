@@ -24,7 +24,7 @@ function generatePipeName() {
     // Mac/Unix: use socket file
     return path.join(os.tmpdir(), randomName + '.sock');
 }
-function generatePatchedEnv(env, stdInPipeName, stdOutPipeName) {
+function generatePatchedEnv(env, stdInPipeName, stdOutPipeName, stdErrPipeName) {
     // Set the two unique pipe names and the electron flag as process env
     var newEnv = {};
     for (var key in env) {
@@ -32,6 +32,7 @@ function generatePatchedEnv(env, stdInPipeName, stdOutPipeName) {
     }
     newEnv['STDIN_PIPE_NAME'] = stdInPipeName;
     newEnv['STDOUT_PIPE_NAME'] = stdOutPipeName;
+    newEnv['STDERR_PIPE_NAME'] = stdErrPipeName;
     newEnv['ATOM_SHELL_INTERNAL_RUN_AS_NODE'] = '1';
     return newEnv;
 }
@@ -51,30 +52,38 @@ function fork(modulePath, args, options, callback) {
         callbackCalled = true;
         callback(err, null);
     };
-    // Generate two unique pipe names
+    // Generate three unique pipe names
     var stdInPipeName = generatePipeName();
     var stdOutPipeName = generatePipeName();
-    var newEnv = generatePatchedEnv(options.env || process.env, stdInPipeName, stdOutPipeName);
+    var stdErrPipeName = generatePipeName();
+    var newEnv = generatePatchedEnv(options.env || process.env, stdInPipeName, stdOutPipeName, stdErrPipeName);
     var childProcess;
+    // Begin listening to stderr pipe
+    var stdErrServer = net.createServer(function (stdErrStream) {
+        // From now on the childProcess.stderr is available for reading
+        childProcess.stderr = stdErrStream;
+    });
+    stdErrServer.listen(stdErrPipeName);
     // Begin listening to stdout pipe
-    var server = net.createServer(function (stream) {
+    var stdOutServer = net.createServer(function (stdOutStream) {
         // The child process will write exactly one chunk with content `ready` when it has installed a listener to the stdin pipe
-        stream.once('data', function (chunk) {
+        stdOutStream.once('data', function (chunk) {
             // The child process is sending me the `ready` chunk, time to connect to the stdin pipe
             childProcess.stdin = net.connect(stdInPipeName);
             // From now on the childProcess.stdout is available for reading
-            childProcess.stdout = stream;
+            childProcess.stdout = stdOutStream;
             resolve(childProcess);
         });
     });
-    server.listen(stdOutPipeName);
+    stdOutServer.listen(stdOutPipeName);
     var serverClosed = false;
     var closeServer = function () {
         if (serverClosed) {
             return;
         }
         serverClosed = true;
-        server.close();
+        stdOutServer.close();
+        stdErrServer.close();
     };
     // Create the process
     var bootstrapperPath = path.join(__dirname, 'electronForkStart');
@@ -94,3 +103,4 @@ function fork(modulePath, args, options, callback) {
     });
 }
 exports.fork = fork;
+//# sourceMappingURL=electron.js.map

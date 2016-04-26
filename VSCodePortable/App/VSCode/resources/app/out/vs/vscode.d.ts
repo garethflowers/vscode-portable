@@ -144,7 +144,8 @@ declare namespace vscode {
 		 * Save the underlying file.
 		 *
 		 * @return A promise that will resolve to true when the file
-		 * has been saved.
+		 * has been saved. If the file was not dirty or the save failed,
+		 * will return false.
 		 */
 		save(): Thenable<boolean>;
 
@@ -520,6 +521,24 @@ declare namespace vscode {
 	}
 
 	/**
+	 * Rendering style of the cursor.
+	 */
+	export enum TextEditorCursorStyle {
+		/**
+		 * Render the cursor as a vertical line.
+		 */
+		Line = 1,
+		/**
+		 * Render the cursor as a block.
+		 */
+		Block = 2,
+		/**
+		 * Render the cursor as a horizontal line under the character.
+		 */
+		Underline = 3
+	}
+
+	/**
 	 * Represents a [text editor](#TextEditor)'s [options](#TextEditor.options).
 	 */
 	export interface TextEditorOptions {
@@ -539,6 +558,13 @@ declare namespace vscode {
 		 * When setting a text editor's options, this property is optional and it can be a boolean or `"auto"`.
 		 */
 		insertSpaces?: boolean | string;
+
+		/**
+		 * The rendering style of the cursor in this editor.
+		 * When getting a text editor's options, this property will always be present.
+		 * When setting a text editor's options, this property is optional.
+		 */
+		cursorStyle?: TextEditorCursorStyle;
 	}
 
 	/**
@@ -796,6 +822,20 @@ declare namespace vscode {
 	}
 
 	/**
+	 * Represents an end of line character sequence in a [document](#Document).
+	 */
+	export enum EndOfLine {
+		/**
+		 * The line feed `\n` character.
+		 */
+		LF = 1,
+		/**
+		 * The carriage return line feed `\r\n` sequence.
+		 */
+		CRLF = 2
+	}
+
+	/**
 	 * A complex edit that will be applied in one transaction on a TextEditor.
 	 * This holds a description of the edits and if the edits are valid (i.e. no overlapping regions, document was not changed in the meantime, etc.)
 	 * they can be applied on a [document](#Document) associated with a [text editor](#TextEditor).
@@ -827,6 +867,13 @@ declare namespace vscode {
 		 * @param location The range this operation should remove.
 		 */
 		delete(location: Range | Selection): void;
+
+		/**
+		 * Set the end of line sequence.
+		 *
+		 * @param endOfLine The new end of line for the [document](#Document).
+		 */
+		setEndOfLine(endOfLine: EndOfLine): void;
 	}
 
 	/**
@@ -2243,6 +2290,12 @@ declare namespace vscode {
 		 * @deprecated Will be replaced by a better API soon.
 		 */
 		__electricCharacterSupport?: {
+			/**
+			 * This property is deprecated and will be **ignored** from
+			 * the editor.
+			 * @deprecated
+			 */
+			brackets?: any;
 			docComment?: {
 				scope: string;
 				open: string;
@@ -2494,7 +2547,7 @@ declare namespace vscode {
 		 * Reveal this channel in the UI.
 		 * @deprecated **This method is deprecated.**
 		 *
-		 * @param column The column in which to show the channel, default in [one](#ViewColumn.One).
+		 * @param @deprecated column **This argument is deprecated.**
 		 * @param preserveFocus When `true` the channel will not take focus.
 		 */
 		show(column?: ViewColumn, preserveFocus?: boolean): void;
@@ -2871,7 +2924,7 @@ declare namespace vscode {
 		export const onDidChangeTextEditorOptions: Event<TextEditorOptionsChangeEvent>;
 
 		/**
-		 * An [event](#Event) which fires when the view column of an editor das changed.
+		 * An [event](#Event) which fires when the view column of an editor has changed.
 		 */
 		export const onDidChangeTextEditorViewColumn: Event<TextEditorViewColumnChangeEvent>;
 
@@ -3160,8 +3213,8 @@ declare namespace vscode {
 		 * [open document](#workspace.onDidOpenTextDocument)-event fires.
 		 * The document to open is denoted by the [uri](#Uri). Two schemes are supported:
 		 *
-		 * file: A file on disk, will be rejected if the file does not exist or cannot be loaded, e.g. 'file:///Users/frodo/r.ini'.
-		 * untitled: A new file that should be saved on disk, e.g. 'untitled:/Users/frodo/new.js'. The language will be derived from the file name.
+		 * file: A file on disk, will be rejected if the file does not exist or cannot be loaded, e.g. `file:///Users/frodo/r.ini`.
+		 * untitled: A new file that should be saved on disk, e.g. `untitled:c:\frodo\new.js`. The language will be derived from the file name.
 		 *
 		 * Uris with other schemes will make this method return a rejected promise.
 		 *
@@ -3422,7 +3475,7 @@ declare namespace vscode {
 		 * Register a reference provider.
 		 *
 		 * Multiple providers can be registered for a language. In that case providers are sorted
-		 * by their [score](#languages.match) and the result of best-matching provider is used. Failure
+		 * by their [score](#languages.match) and the best-matching provider is used. Failure
 		 * of the selected provider will cause a failure of the whole operation.
 		 *
 		 * @param selector A selector that defines the documents this provider is applicable to.
@@ -3435,7 +3488,7 @@ declare namespace vscode {
 		 * Register a formatting provider for a document.
 		 *
 		 * Multiple providers can be registered for a language. In that case providers are sorted
-		 * by their [score](#languages.match) and the result of best-matching provider is used. Failure
+		 * by their [score](#languages.match) and the best-matching provider is used. Failure
 		 * of the selected provider will cause a failure of the whole operation.
 		 *
 		 * @param selector A selector that defines the documents this provider is applicable to.
@@ -3448,7 +3501,7 @@ declare namespace vscode {
 		 * Register a formatting provider for a document range.
 		 *
 		 * Multiple providers can be registered for a language. In that case providers are sorted
-		 * by their [score](#languages.match) and the result of best-matching provider is used. Failure
+		 * by their [score](#languages.match) and the best-matching provider is used. Failure
 		 * of the selected provider will cause a failure of the whole operation.
 		 *
 		 * @param selector A selector that defines the documents this provider is applicable to.
@@ -3461,7 +3514,7 @@ declare namespace vscode {
 		 * Register a formatting provider that works on type. The provider is active when the user enables the setting `editor.formatOnType`.
 		 *
 		 * Multiple providers can be registered for a language. In that case providers are sorted
-		 * by their [score](#languages.match) and the result of best-matching provider is used. Failure
+		 * by their [score](#languages.match) and the best-matching provider is used. Failure
 		 * of the selected provider will cause a failure of the whole operation.
 		 *
 		 * @param selector A selector that defines the documents this provider is applicable to.
@@ -3476,7 +3529,7 @@ declare namespace vscode {
 		 * Register a signature help provider.
 		 *
 		 * Multiple providers can be registered for a language. In that case providers are sorted
-		 * by their [score](#languages.match) and the result of best-matching provider is used. Failure
+		 * by their [score](#languages.match) and the best-matching provider is used. Failure
 		 * of the selected provider will cause a failure of the whole operation.
 		 *
 		 * @param selector A selector that defines the documents this provider is applicable to.
@@ -3649,10 +3702,10 @@ interface PromiseConstructor {
 	reject<T>(reason: any): Promise<T>;
 
 	/**
-	  * Creates a new resolved promise for the provided value.
-	  * @param value A promise.
-	  * @returns A promise whose internal state matches the provided promise.
-	  */
+	 * Creates a new resolved promise for the provided value.
+	 * @param value A promise.
+	 * @returns A promise whose internal state matches the provided promise.
+	 */
 	resolve<T>(value: T | Thenable<T>): Promise<T>;
 
 	/**

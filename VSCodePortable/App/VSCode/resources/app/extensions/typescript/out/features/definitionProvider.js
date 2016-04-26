@@ -41,3 +41,4 @@ var TypeScriptDefinitionProvider = (function () {
 }());
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = TypeScriptDefinitionProvider;
+//# sourceMappingURL=definitionProvider.js.map

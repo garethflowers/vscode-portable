@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 'use strict';
-function localize(key, message) {
+function localize2(key, message) {
     var formatArgs = [];
     for (var _i = 2; _i < arguments.length; _i++) {
         formatArgs[_i - 2] = arguments[_i];
@@ -16,5 +16,5 @@ function localize(key, message) {
     }
     return message;
 }
-exports.localize = localize;
+exports.localize2 = localize2;
 //# sourceMappingURL=nls.js.map

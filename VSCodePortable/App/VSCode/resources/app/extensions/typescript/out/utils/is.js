@@ -44,3 +44,4 @@ function stringArray(value) {
     return array(value) && value.every(function (elem) { return string(elem); });
 }
 exports.stringArray = stringArray;
+//# sourceMappingURL=is.js.map

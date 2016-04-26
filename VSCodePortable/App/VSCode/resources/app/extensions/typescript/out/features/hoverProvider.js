@@ -30,3 +30,4 @@ var TypeScriptHoverProvider = (function () {
 }());
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = TypeScriptHoverProvider;
+//# sourceMappingURL=hoverProvider.js.map

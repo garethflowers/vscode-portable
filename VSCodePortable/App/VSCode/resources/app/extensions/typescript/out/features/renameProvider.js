@@ -46,3 +46,4 @@ var TypeScriptRenameProvider = (function () {
 }());
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = TypeScriptRenameProvider;
+//# sourceMappingURL=renameProvider.js.map

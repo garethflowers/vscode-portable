@@ -4,7 +4,7 @@
     "name": "Microsoft Corp."
   },
   "homepage": "http://typescriptlang.org/",
-  "version": "1.8.2",
+  "version": "1.8.9",
   "license": "Apache-2.0",
   "description": "TypeScript is a language for application scale JavaScript development",
   "keywords": [
@@ -58,9 +58,9 @@
     "os": false,
     "path": false
   },
-  "gitHead": "e5dd34f9e69f517182abfc996a10b8312b14e015",
-  "_id": "typescript@1.8.2",
-  "_shasum": "4d2ad7db172be67a913d09862b510133bad61b33",
+  "gitHead": "9ef75534e0fd5f92bef86b520dff768c11a2df4d",
+  "_id": "typescript@1.8.9",
+  "_shasum": "b3b3a74059fd31cbd3ecad95d62465939e7ed5fa",
   "_from": "typescript@latest",
   "_npmVersion": "2.0.0",
   "_npmUser": {
@@ -74,9 +74,13 @@
     }
   ],
   "dist": {
-    "shasum": "4d2ad7db172be67a913d09862b510133bad61b33",
-    "tarball": "http://registry.npmjs.org/typescript/-/typescript-1.8.2.tgz"
+    "shasum": "b3b3a74059fd31cbd3ecad95d62465939e7ed5fa",
+    "tarball": "http://registry.npmjs.org/typescript/-/typescript-1.8.9.tgz"
+  },
+  "_npmOperationalInternal": {
+    "host": "packages-12-west.internal.npmjs.com",
+    "tmp": "tmp/typescript-1.8.9.tgz_1458169371557_0.7292261146940291"
   },
   "directories": {},
-  "_resolved": "https://registry.npmjs.org/typescript/-/typescript-1.8.2.tgz"
+  "_resolved": "https://registry.npmjs.org/typescript/-/typescript-1.8.9.tgz"
 }

@@ -15,3 +15,4 @@ function load(myPluginId) {
     };
 }
 exports.load = load;
+//# sourceMappingURL=configuration.js.map

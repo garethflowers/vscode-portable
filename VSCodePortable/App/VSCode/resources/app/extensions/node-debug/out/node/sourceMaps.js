@@ -2,6 +2,7 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+"use strict";
 var Path = require('path');
 var FS = require('fs');
 var source_map_1 = require('source-map');
@@ -22,8 +23,9 @@ var SourceMaps = (function () {
     }
     SourceMaps.prototype.MapPathFromSource = function (pathToSource) {
         var map = this._findSourceToGeneratedMapping(pathToSource);
-        if (map)
+        if (map) {
             return map.generatedPath();
+        }
         return null;
     };
     SourceMaps.prototype.MapFromSource = function (pathToSource, line, column, bias) {
@@ -86,8 +88,8 @@ var SourceMaps = (function () {
         if (this._generatedCodeDirectory) {
             try {
                 var maps = FS.readdirSync(this._generatedCodeDirectory).filter(function (e) { return Path.extname(e.toLowerCase()) === '.map'; });
-                for (var _i = 0; _i < maps.length; _i++) {
-                    var map_name = maps[_i];
+                for (var _i = 0, maps_1 = maps; _i < maps_1.length; _i++) {
+                    var map_name = maps_1[_i];
                     var map_path = Path.join(this._generatedCodeDirectory, map_name);
                     var m = this._loadSourceMap(map_path);
                     if (m && m.doesOriginateFrom(pathToSource)) {
@@ -161,7 +163,7 @@ var SourceMaps = (function () {
         var uri = this._findSourceMapUrlInFile(pathToGenerated);
         if (uri) {
             // if uri is data url source map is inlined in generated file
-            if (uri.indexOf("data:application/json") >= 0) {
+            if (uri.indexOf('data:application/json') >= 0) {
                 var pos = uri.lastIndexOf(',');
                 if (pos > 0) {
                     var data = uri.substr(pos + 1);
@@ -206,8 +208,8 @@ var SourceMaps = (function () {
         try {
             var contents = FS.readFileSync(pathToGenerated).toString();
             var lines = contents.split('\n');
-            for (var _i = 0; _i < lines.length; _i++) {
-                var line = lines[_i];
+            for (var _i = 0, lines_1 = lines; _i < lines_1.length; _i++) {
+                var line = lines_1[_i];
                 var matches = SourceMaps.SOURCE_MAPPING_MATCHER.exec(line);
                 if (matches && matches.length === 2) {
                     var uri = matches[1].trim();
@@ -252,14 +254,14 @@ var SourceMaps = (function () {
     SourceMaps.prototype._log = function (message) {
         this._session.log('sm', message);
     };
-    SourceMaps.SOURCE_MAPPING_MATCHER = new RegExp("//[#@] ?sourceMappingURL=(.+)$");
+    SourceMaps.SOURCE_MAPPING_MATCHER = new RegExp('//[#@] ?sourceMappingURL=(.+)$');
     return SourceMaps;
-})();
+}());
 exports.SourceMaps = SourceMaps;
 var SourceMap = (function () {
     function SourceMap(mapPath, generatedPath, json) {
         var _this = this;
-        this._sourcemapLocation = this.toUrl(Path.dirname(mapPath));
+        this._sourcemapLocation = this.fixPath(Path.dirname(mapPath));
         var sm = JSON.parse(json);
         if (!generatedPath) {
             var file = sm.file;
@@ -268,14 +270,10 @@ var SourceMap = (function () {
             }
         }
         this._generatedFile = generatedPath;
-        // try to fix all embedded paths because:
-        // - source map sources are URLs, so even on Windows they should be using forward slashes.
-        // - the source-map library expects forward slashes and their relative path logic
-        //   (specifically the "normalize" function) gives incorrect results when passing in backslashes.
-        // - paths starting with drive letters are not recognized as absolute by the source-map library
-        sm.sourceRoot = this.toUrl(sm.sourceRoot, '');
+        // fix all paths for use with the source-map npm module.
+        sm.sourceRoot = this.fixPath(sm.sourceRoot, '');
         for (var i = 0; i < sm.sources.length; i++) {
-            sm.sources[i] = this.toUrl(sm.sources[i]);
+            sm.sources[i] = this.fixPath(sm.sources[i]);
         }
         this._sourceRoot = sm.sourceRoot;
         // use source-map utilities to normalize sources entries
@@ -292,21 +290,38 @@ var SourceMap = (function () {
         catch (e) {
         }
     }
-    SourceMap.prototype.toUrl = function (path, dflt) {
+    /**
+     * fix a path for use with the source-map npm module because:
+     * - source map sources are URLs, so even on Windows they should be using forward slashes.
+     * - the source-map library expects forward slashes and their relative path logic
+     *   (specifically the "normalize" function) gives incorrect results when passing in backslashes.
+     * - paths starting with drive letters are not recognized as absolute by the source-map library.
+     */
+    SourceMap.prototype.fixPath = function (path, dflt) {
         if (path) {
             path = path.replace(/\\/g, '/');
-            // if path starts with a drive letter convert path to a file:/// url so that the source-map library can handle it
+            // if path starts with a drive letter convert path to a file url so that the source-map library can handle it
             if (/^[a-zA-Z]\:\//.test(path)) {
-                path = 'file:///' + path;
-            }
-            // if path contains upper case drive letter convert to lower case
-            if (/^file\:\/\/\/[A-Z]\:\//.test(path)) {
-                var dl = path[8];
-                path = path.replace(dl, dl.toLowerCase());
+                // Windows drive letter must be prefixed with a slash
+                path = encodeURI('file:///' + path);
             }
             return path;
         }
         return dflt;
+    };
+    /**
+     * undo the fix
+     */
+    SourceMap.prototype.unfixPath = function (path) {
+        var prefix = 'file://';
+        if (path.indexOf(prefix) === 0) {
+            path = path.substr(prefix.length);
+            path = decodeURI(path);
+            if (/^\/[a-zA-Z]\:\//.test(path)) {
+                path = path.substr(1); // remove additional '/'
+            }
+        }
+        return path;
     };
     /*
      * The generated file this source map belongs to.
@@ -334,8 +349,8 @@ var SourceMap = (function () {
             if (!util.isAbsolute(name_1)) {
                 name_1 = util.join(this._sourceRoot, name_1);
             }
-            var url = this.absolutePath(name_1);
-            if (absPath === url) {
+            var path = this.absolutePath(name_1);
+            if (absPath === path) {
                 return name_1;
             }
         }
@@ -349,14 +364,7 @@ var SourceMap = (function () {
         if (!util.isAbsolute(path)) {
             path = util.join(this._sourcemapLocation, path);
         }
-        var prefix = 'file://';
-        if (path.indexOf(prefix) === 0) {
-            path = path.substr(prefix.length);
-            if (/^\/[a-zA-Z]\:\//.test(path)) {
-                path = path.substr(1);
-            }
-        }
-        return path;
+        return this.unfixPath(path);
     };
     /*
      * Finds the nearest source location for the given location in the generated file.
@@ -409,5 +417,6 @@ var SourceMap = (function () {
         return null;
     };
     return SourceMap;
-})();
-//# sourceMappingURL=sourceMaps.js.map
+}());
+
+//# sourceMappingURL=../../out/node/sourceMaps.js.map

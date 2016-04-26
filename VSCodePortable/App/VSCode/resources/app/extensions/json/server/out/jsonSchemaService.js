@@ -3,11 +3,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 'use strict';
-var nls = require('./utils/nls');
 var Json = require('./json-toolbox/json');
 var httpRequest_1 = require('./utils/httpRequest');
 var uri_1 = require('./utils/uri');
 var Strings = require('./utils/strings');
+var nls = require('vscode-nls');
+var localize = nls.loadMessageBundle(__filename);
 var FilePatternAssociation = (function () {
     function FilePatternAssociation(pattern) {
         this.combinedSchemaId = 'local://combinedSchema/' + encodeURIComponent(pattern);
@@ -231,7 +232,7 @@ var JSONSchemaService = (function () {
         return Promise.resolve(null);
     };
     JSONSchemaService.prototype.loadSchema = function (url) {
-        if (this.telemetryService && Strings.startsWith(url, 'https://schema.management.azure.com')) {
+        if (this.telemetryService && url.indexOf('//schema.management.azure.com/') !== -1) {
             this.telemetryService.log('json.schema', {
                 schemaURL: url
             });
@@ -239,16 +240,16 @@ var JSONSchemaService = (function () {
         return this.requestService({ url: url, followRedirects: 5 }).then(function (request) {
             var content = request.responseText;
             if (!content) {
-                var errorMessage = nls.localize('json.schema.nocontent', 'Unable to load schema from \'{0}\': No content.', toDisplayString(url));
+                var errorMessage = localize(0, null, toDisplayString(url));
                 return new UnresolvedSchema({}, [errorMessage]);
             }
             var schemaContent = {};
             var jsonErrors = [];
             schemaContent = Json.parse(content, jsonErrors);
-            var errors = jsonErrors.length ? [nls.localize('json.schema.invalidFormat', 'Unable to parse content from \'{0}\': {1}.', toDisplayString(url), jsonErrors[0])] : [];
+            var errors = jsonErrors.length ? [localize(1, null, toDisplayString(url), jsonErrors[0])] : [];
             return new UnresolvedSchema(schemaContent, errors);
         }, function (error) {
-            var errorMessage = nls.localize('json.schema.unabletoload', 'Unable to load schema from \'{0}\': {1}', toDisplayString(url), error.responseText || httpRequest_1.getErrorStatusDescription(error.status) || error.toString());
+            var errorMessage = localize(2, null, toDisplayString(url), error.responseText || httpRequest_1.getErrorStatusDescription(error.status) || error.toString());
             return new UnresolvedSchema({}, [errorMessage]);
         });
     };
@@ -277,7 +278,7 @@ var JSONSchemaService = (function () {
                 }
             }
             else {
-                resolveErrors.push(nls.localize('json.schema.invalidref', '$ref \'{0}\' in {1} can not be resolved.', linkPath, linkedSchema.id));
+                resolveErrors.push(localize(3, null, linkPath, linkedSchema.id));
             }
             delete node.$ref;
         };
@@ -285,7 +286,7 @@ var JSONSchemaService = (function () {
             return _this.getOrAddSchemaHandle(uri).getUnresolvedSchema().then(function (unresolvedSchema) {
                 if (unresolvedSchema.errors.length) {
                     var loc = linkPath ? uri + '#' + linkPath : uri;
-                    resolveErrors.push(nls.localize('json.schema.problemloadingref', 'Problems loading reference \'{0}\': {1}', loc, unresolvedSchema.errors[0]));
+                    resolveErrors.push(localize(4, null, loc, unresolvedSchema.errors[0]));
                 }
                 resolveLink(node, unresolvedSchema.schema, linkPath);
                 return resolveRefs(node, unresolvedSchema.schema);

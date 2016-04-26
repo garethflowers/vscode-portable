@@ -5,8 +5,9 @@
 'use strict';
 var vscode = require('vscode');
 var versionBarEntry = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, Number.MIN_VALUE);
+var _enable = false;
 function showHideStatus() {
-    if (!versionBarEntry) {
+    if (!versionBarEntry || !_enable) {
         return;
     }
     if (!vscode.window.activeTextEditor) {
@@ -33,6 +34,14 @@ function setInfo(message, tooltip) {
     versionBarEntry.tooltip = tooltip;
     var color = 'white';
     versionBarEntry.color = color;
-    versionBarEntry.show();
+    if (_enable) {
+        versionBarEntry.show();
+    }
 }
 exports.setInfo = setInfo;
+function enable(value) {
+    _enable = value;
+    showHideStatus();
+}
+exports.enable = enable;
+//# sourceMappingURL=versionStatus.js.map

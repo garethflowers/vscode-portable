@@ -23,8 +23,8 @@ var JSONDocumentSymbols = (function () {
                     if (item.type === 'object') {
                         var property = item.getFirstProperty('key');
                         if (property && property.value) {
-                            var location_1 = vscode_languageserver_1.Location.create(document.uri, vscode_languageserver_1.Range.create(document.positionAt(item.start), document.positionAt(item.end)));
-                            result_1.push({ name: property.value.getValue(), kind: vscode_languageserver_1.SymbolKind.Function, location: location_1 });
+                            var location = vscode_languageserver_1.Location.create(document.uri, vscode_languageserver_1.Range.create(document.positionAt(item.start), document.positionAt(item.end)));
+                            result_1.push({ name: property.value.getValue(), kind: vscode_languageserver_1.SymbolKind.Function, location: location });
                         }
                     }
                 });

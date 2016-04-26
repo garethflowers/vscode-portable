@@ -3,8 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 'use strict';
-var nls = require('./utils/nls');
 var vscode_languageserver_1 = require('vscode-languageserver');
+var nls = require('vscode-nls');
+var localize = nls.loadMessageBundle(__filename);
 var JSONCompletion = (function () {
     function JSONCompletion(schemaService, console, contributions) {
         if (contributions === void 0) { contributions = []; }
@@ -156,7 +157,7 @@ var JSONCompletion = (function () {
                 if (schemaProperties_1) {
                     Object.keys(schemaProperties_1).forEach(function (key) {
                         var propertySchema = schemaProperties_1[key];
-                        collector.add({ kind: vscode_languageserver_1.CompletionItemKind.Property, label: key, insertText: _this.getSnippetForProperty(key, propertySchema, addValue, isLast), documentation: propertySchema.description || '' });
+                        collector.add({ kind: vscode_languageserver_1.CompletionItemKind.Property, label: key, insertText: _this.getTextForProperty(key, propertySchema, addValue, isLast), documentation: propertySchema.description || '' });
                     });
                 }
             }
@@ -167,7 +168,7 @@ var JSONCompletion = (function () {
         var collectSuggestionsForSimilarObject = function (obj) {
             obj.properties.forEach(function (p) {
                 var key = p.key.value;
-                collector.add({ kind: vscode_languageserver_1.CompletionItemKind.Property, label: key, insertText: _this.getSnippetForSimilarProperty(key, p.value), documentation: '' });
+                collector.add({ kind: vscode_languageserver_1.CompletionItemKind.Property, label: key, insertText: _this.getTextForSimilarProperty(key, p.value), documentation: '' });
             });
         };
         if (node.parent) {
@@ -191,14 +192,14 @@ var JSONCompletion = (function () {
             }
         }
         if (!currentKey && currentWord.length > 0) {
-            collector.add({ kind: vscode_languageserver_1.CompletionItemKind.Property, label: JSON.stringify(currentWord), insertText: this.getSnippetForProperty(currentWord, null, true, isLast), documentation: '' });
+            collector.add({ kind: vscode_languageserver_1.CompletionItemKind.Property, label: this.getLabelForValue(currentWord), insertText: this.getTextForProperty(currentWord, null, true, isLast), documentation: '' });
         }
     };
     JSONCompletion.prototype.getSchemaLessValueSuggestions = function (doc, node, offset, document, collector) {
         var _this = this;
         var collectSuggestionsForValues = function (value) {
             if (!value.contains(offset)) {
-                var content = _this.getMatchingSnippet(value, document);
+                var content = _this.getTextForMatchingNode(value, document);
                 collector.add({ kind: _this.getSuggestionKind(value.type), label: content, insertText: content, documentation: '' });
             }
             if (value.type === 'boolean') {
@@ -325,7 +326,16 @@ var JSONCompletion = (function () {
                 kind: this.getSuggestionKind(schema.type),
                 label: this.getLabelForValue(schema.default),
                 insertText: this.getTextForValue(schema.default),
-                detail: nls.localize('json.suggest.default', 'Default value'),
+                detail: localize(0, null),
+            });
+        }
+        if (Array.isArray(schema.defaultSnippets)) {
+            schema.defaultSnippets.forEach(function (s) {
+                collector.add({
+                    kind: vscode_languageserver_1.CompletionItemKind.Snippet,
+                    label: _this.getLabelForSnippetValue(s.body),
+                    insertText: _this.getTextForSnippetValue(s.body)
+                });
             });
         }
         if (Array.isArray(schema.allOf)) {
@@ -340,17 +350,29 @@ var JSONCompletion = (function () {
     };
     JSONCompletion.prototype.getLabelForValue = function (value) {
         var label = JSON.stringify(value);
-        label = label.replace('{{', '').replace('}}', '');
+        if (label.length > 57) {
+            return label.substr(0, 57).trim() + '...';
+        }
+        return label;
+    };
+    JSONCompletion.prototype.getLabelForSnippetValue = function (value) {
+        var label = JSON.stringify(value);
+        label = label.replace(/\{\{|\}\}/g, '');
         if (label.length > 57) {
             return label.substr(0, 57).trim() + '...';
         }
         return label;
     };
     JSONCompletion.prototype.getTextForValue = function (value) {
+        var text = JSON.stringify(value, null, '\t');
+        text = text.replace(/[\\\{\}]/g, '\\$&');
+        return text;
+    };
+    JSONCompletion.prototype.getTextForSnippetValue = function (value) {
         return JSON.stringify(value, null, '\t');
     };
-    JSONCompletion.prototype.getSnippetForValue = function (value) {
-        var snippet = JSON.stringify(value, null, '\t');
+    JSONCompletion.prototype.getTextForEnumValue = function (value) {
+        var snippet = this.getTextForValue(value);
         switch (typeof value) {
             case 'object':
                 if (value === null) {
@@ -380,7 +402,7 @@ var JSONCompletion = (function () {
             default: return vscode_languageserver_1.CompletionItemKind.Value;
         }
     };
-    JSONCompletion.prototype.getMatchingSnippet = function (node, document) {
+    JSONCompletion.prototype.getTextForMatchingNode = function (node, document) {
         switch (node.type) {
             case 'array':
                 return '[]';
@@ -391,8 +413,8 @@ var JSONCompletion = (function () {
                 return content;
         }
     };
-    JSONCompletion.prototype.getSnippetForProperty = function (key, propertySchema, addValue, isLast) {
-        var result = '"' + key + '"';
+    JSONCompletion.prototype.getTextForProperty = function (key, propertySchema, addValue, isLast) {
+        var result = this.getTextForValue(key);
         if (!addValue) {
             return result;
         }
@@ -400,10 +422,10 @@ var JSONCompletion = (function () {
         if (propertySchema) {
             var defaultVal = propertySchema.default;
             if (typeof defaultVal !== 'undefined') {
-                result = result + this.getSnippetForValue(defaultVal);
+                result = result + this.getTextForEnumValue(defaultVal);
             }
             else if (propertySchema.enum && propertySchema.enum.length > 0) {
-                result = result + this.getSnippetForValue(propertySchema.enum[0]);
+                result = result + this.getTextForEnumValue(propertySchema.enum[0]);
             }
             else {
                 var type = Array.isArray(propertySchema.type) ? propertySchema.type[0] : propertySchema.type;
@@ -439,8 +461,8 @@ var JSONCompletion = (function () {
         }
         return result;
     };
-    JSONCompletion.prototype.getSnippetForSimilarProperty = function (key, templateValue) {
-        return '"' + key + '"';
+    JSONCompletion.prototype.getTextForSimilarProperty = function (key, templateValue) {
+        return this.getTextForValue(key);
     };
     JSONCompletion.prototype.getCurrentWord = function (document, offset) {
         var i = offset - 1;

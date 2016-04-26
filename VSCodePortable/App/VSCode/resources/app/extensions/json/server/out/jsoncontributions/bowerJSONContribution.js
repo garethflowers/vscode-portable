@@ -5,7 +5,8 @@
 'use strict';
 var vscode_languageserver_1 = require('vscode-languageserver');
 var Strings = require('../utils/strings');
-var nls = require('../utils/nls');
+var nls = require('vscode-nls');
+var localize = nls.loadMessageBundle(__filename);
 var BowerJSONContribution = (function () {
     function BowerJSONContribution(requestService) {
         this.topRanked = ['twitter', 'bootstrap', 'angular-1.1.6', 'angular-latest', 'angulerjs', 'd3', 'myjquery', 'jq', 'abcdef1234567890', 'jQuery', 'jquery-1.11.1', 'jquery',
@@ -30,7 +31,7 @@ var BowerJSONContribution = (function () {
                 'main': '{{pathToMain}}',
                 'dependencies': {}
             };
-            result.add({ kind: vscode_languageserver_1.CompletionItemKind.Class, label: nls.localize('json.bower.default', 'Default bower.json'), insertText: JSON.stringify(defaultValue, null, '\t'), documentation: '' });
+            result.add({ kind: vscode_languageserver_1.CompletionItemKind.Class, label: localize(0, null), insertText: JSON.stringify(defaultValue, null, '\t'), documentation: '' });
         }
         return null;
     };
@@ -47,16 +48,16 @@ var BowerJSONContribution = (function () {
                             if (Array.isArray(obj)) {
                                 var results = obj;
                                 for (var i = 0; i < results.length; i++) {
-                                    var name_1 = results[i].name;
+                                    var name = results[i].name;
                                     var description = results[i].description || '';
-                                    var insertText = JSON.stringify(name_1);
+                                    var insertText = JSON.stringify(name);
                                     if (addValue) {
                                         insertText += ': "{{*}}"';
                                         if (!isLast) {
                                             insertText += ',';
                                         }
                                     }
-                                    result.add({ kind: vscode_languageserver_1.CompletionItemKind.Property, label: name_1, insertText: insertText, documentation: description });
+                                    result.add({ kind: vscode_languageserver_1.CompletionItemKind.Property, label: name, insertText: insertText, documentation: description });
                                 }
                                 result.setAsIncomplete();
                             }
@@ -65,11 +66,11 @@ var BowerJSONContribution = (function () {
                         }
                     }
                     else {
-                        result.error(nls.localize('json.bower.error.repoaccess', 'Request to the bower repository failed: {0}', success.responseText));
+                        result.error(localize(1, null, success.responseText));
                         return 0;
                     }
                 }, function (error) {
-                    result.error(nls.localize('json.bower.error.repoaccess', 'Request to the bower repository failed: {0}', error.responseText));
+                    result.error(localize(2, null, error.responseText));
                     return 0;
                 });
             }
@@ -97,7 +98,7 @@ var BowerJSONContribution = (function () {
         if (this.isBowerFile(resource) && (location.matches(['dependencies', '*']) || location.matches(['devDependencies', '*']))) {
             var pack = location.getSegments()[location.getSegments().length - 1];
             var htmlContent_1 = [];
-            htmlContent_1.push(nls.localize('json.bower.package.hover', '{0}', pack));
+            htmlContent_1.push(localize(3, null, pack));
             var queryUrl = 'https://bower.herokuapp.com/packages/' + encodeURIComponent(pack);
             return this.requestService({
                 url: queryUrl
