@@ -10,8 +10,8 @@ features as Visual Studio Code, plus, it leaves no personal information behind
 on the machine you run it on, so you can take it with you wherever you go.
 
 ## Download
-All downloads available [in the Relases section][1]. Visual Studio Code is
-packaged as an online installer and complete zip file. 
+All downloads available [in the Relases section][1]. Visual Studio Code Portable
+is packaged as an online installer and complete zip file. 
 
  [1]: https://github.com/garethflowers/vscode-portable/releases/latest
 
@@ -40,5 +40,5 @@ packaged as an online installer and complete zip file.
 * Portable application code released under [the MIT license][4].
 * The Visual Studio Code editor is released under [the MIT license][5].
 
- [4]: LICENSE
- [5]: https://github.com/Microsoft/vscode/blob/master/LICENSE.txt
+ [4]: https://raw.githubusercontent.com/garethflowers/vscode-portable/master/LICENSE
+ [5]: https://raw.githubusercontent.com/Microsoft/vscode/master/LICENSE.txt
