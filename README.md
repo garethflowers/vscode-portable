@@ -10,7 +10,7 @@ features as Visual Studio Code, plus, it leaves no personal information behind
 on the machine you run it on, so you can take it with you wherever you go.
 
 ## Download
-All downloads available [in the Relases section][1]. Visual Studio Code Portable
+All downloads available [in the Releases section][1]. Visual Studio Code Portable
 is packaged as an online installer and complete zip file. 
 
  [1]: https://github.com/garethflowers/vscode-portable/releases/latest
