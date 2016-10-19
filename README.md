@@ -10,10 +10,10 @@ features as Visual Studio Code, plus, it leaves no personal information behind
 on the machine you run it on, so you can take it with you wherever you go.
 
 ## Download
-All downloads available [in the Releases section][1]. Visual Studio Code Portable
-is packaged as an online installer and complete zip file. 
+All downloads available [in the Releases section][D1]. Visual Studio Code Portable
+is packaged as an online installer and complete zip file.
 
- [1]: https://github.com/garethflowers/vscode-portable/releases/latest
+ [D1]: https://github.com/garethflowers/vscode-portable/releases/latest
 
 ## Features
 * Runs a full copy of the Visual Studio Code editor.
@@ -25,20 +25,23 @@ is packaged as an online installer and complete zip file.
 
 ## System Requirements
 * Microsoft Windows 7 or later.
-* [PortableApps.com Platform][2] (Optional)
+* [PortableApps.com Platform][S1] (Optional)
 
- [2]: http://portableapps.com/download
+ [S1]: http://portableapps.com/download
 
 ## Credits
-* Visual Studio Code Portable is a redistribution of the [Visual Studio Code][3]
-  editor.
+* Visual Studio Code Portable is a redistribution of the
+  [Visual Studio Code][C1] editor, developed by [Microsoft][C2].
+* [PortableApps.com platform][S1] developed by the [PortableApps.com team][C3].
 
- [3]: https://code.visualstudio.com
+ [C1]: https://code.visualstudio.com
+ [C2]: https://www.microsoft.com
+ [C3]: http://portableapps.com
 
 ## License
 
-* Portable application code released under [the MIT license][4].
-* The Visual Studio Code editor is released under [the MIT license][5].
+* Portable application code released under [the MIT license][L1].
+* The Visual Studio Code editor is released under [the MIT license][L2].
 
- [4]: https://raw.githubusercontent.com/garethflowers/vscode-portable/master/LICENSE
- [5]: https://raw.githubusercontent.com/Microsoft/vscode/master/LICENSE.txt
+ [L1]: https://raw.githubusercontent.com/garethflowers/vscode-portable/master/LICENSE
+ [L2]: https://raw.githubusercontent.com/Microsoft/vscode/master/LICENSE.txt
