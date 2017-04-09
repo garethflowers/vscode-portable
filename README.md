@@ -26,6 +26,7 @@ is packaged as an online installer and complete zip file.
 ## System Requirements
 * Microsoft Windows 7 or later.
 * [PortableApps.com Platform][S1] (Optional)
+* You will need a portable version of Node.exe (NodeJS) if you want to do much of anything
 
  [S1]: http://portableapps.com/download
 
