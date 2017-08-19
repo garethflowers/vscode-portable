@@ -27,7 +27,7 @@ is packaged as an online installer and complete zip file.
 * Microsoft Windows 7 or later.
 * [PortableApps.com Platform][S1] (Optional)
 
- [S1]: http://portableapps.com/download
+ [S1]: https://portableapps.com/download
 
 ## Credits
 * Visual Studio Code Portable is a redistribution of the
@@ -36,7 +36,7 @@ is packaged as an online installer and complete zip file.
 
  [C1]: https://code.visualstudio.com
  [C2]: https://www.microsoft.com
- [C3]: http://portableapps.com
+ [C3]: https://portableapps.com
 
 ## License
 
