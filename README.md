@@ -1,5 +1,7 @@
 # Visual Studio Code Portable
 
+##### Edit: This is forked from here https://github.com/garethflowers/vscode-portable. I will do my best to keep somewhat up to date
+
 Visual Studio Code is a code editor redefined and optimized for building and
 debugging modern web and cloud applications.
 
