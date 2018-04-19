@@ -43,8 +43,10 @@ is packaged as an online installer and complete zip file.
 
 ## License
 
-* Portable application code released under [the MIT license][L1].
-* The Visual Studio Code editor is released under [the MIT license][L2].
+* Visual Studio Code Portable released under [the GPL v2.0 license][L1].
+* PortableApps.com Launcher released under [the GPL v2.0 license][L2].
+* The Visual Studio Code editor is released under [the MIT license][L3].
 
  [L1]: https://raw.githubusercontent.com/garethflowers/vscode-portable/master/LICENSE
- [L2]: https://raw.githubusercontent.com/Microsoft/vscode/master/LICENSE.txt
+ [L2]: https://raw.githubusercontent.com/garethflowers/vscode-portable/master/VSCodePortable/Other/Source/LauncherLicense.txt
+ [L3]: https://raw.githubusercontent.com/Microsoft/vscode/master/LICENSE.txt
