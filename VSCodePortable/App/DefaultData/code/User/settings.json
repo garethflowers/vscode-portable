@@ -1,4 +1,4 @@
 {
-    "git.ignoreMissingGitWarning": true,
-    "update.channel": "none"
+	"git.ignoreMissingGitWarning": true,
+	"update.channel": "none"
 }

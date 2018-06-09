@@ -10,43 +10,34 @@ features as Visual Studio Code, plus, it leaves no personal information behind
 on the machine you run it on, so you can take it with you wherever you go.
 
 ## Download
+
 Download [the latest version of the online installer][D1].
 
 All other downloads are available [in the Releases section][D2]. Visual Studio Code Portable
 is packaged as an online installer and complete zip file.
 
- [D1]: https://github.com/garethflowers/vscode-portable/releases/tag/Latest
- [D2]: https://github.com/garethflowers/vscode-portable/releases/latest
+[D1]: https://github.com/garethflowers/vscode-portable/releases/tag/Latest
+[D2]: https://github.com/garethflowers/vscode-portable/releases/latest
 
 ## Features
-* Runs a full copy of the Visual Studio Code editor.
-* Completely portable - runs off a USB, cloud drive (DropBox, iCloud drive,
-  OneDrive, etc) or hard drive.
-* Does not require administrator privileges, works for any user.
-* No need for any external software - simply download extract and run!
-* Packaged in PortableApps.com format for easy integration.
+
+*	Runs a full copy of the Visual Studio Code editor.
+*	Completely portable - runs off a USB, cloud drive (DropBox, iCloud drive, OneDrive, etc) or hard drive.
+*	Does not require administrator privileges, works for any user.
+*	No need for any external software - simply download extract and run!
+*	Packaged in PortableApps.com format for easy integration.
 
 ## System Requirements
-* Microsoft Windows 7 or later.
-* [PortableApps.com Platform][S1] (Optional)
 
- [S1]: https://portableapps.com/download
+*	Microsoft Windows 7 or later.
+*	[PortableApps.com Platform](https://portableapps.com/download) (Optional)
 
 ## Credits
-* Visual Studio Code Portable is a redistribution of the
-  [Visual Studio Code][C1] editor, developed by [Microsoft][C2].
-* [PortableApps.com platform][S1] developed by the [PortableApps.com team][C3].
-
- [C1]: https://code.visualstudio.com
- [C2]: https://www.microsoft.com
- [C3]: https://portableapps.com
+*	Visual Studio Code Portable is a redistribution of the [Visual Studio Code](https://code.visualstudio.com) editor, developed by [Microsoft](https://www.microsoft.com).
+*	[PortableApps.com platform](https://portableapps.com/download) developed by the [PortableApps.com team](https://portableapps.com).
 
 ## License
 
-* Visual Studio Code Portable released under [the GPL v2.0 license][L1].
-* PortableApps.com Launcher released under [the GPL v2.0 license][L2].
-* The Visual Studio Code editor is released under [the MIT license][L3].
-
- [L1]: https://raw.githubusercontent.com/garethflowers/vscode-portable/master/LICENSE
- [L2]: https://raw.githubusercontent.com/garethflowers/vscode-portable/master/VSCodePortable/Other/Source/LauncherLicense.txt
- [L3]: https://raw.githubusercontent.com/Microsoft/vscode/master/LICENSE.txt
+*	Visual Studio Code Portable released under [the GPL v2.0 license](https://raw.githubusercontent.com/garethflowers/vscode-portable/master/LICENSE).
+*	PortableApps.com Launcher released under [the GPL v2.0 license](https://raw.githubusercontent.com/garethflowers/vscode-portable/master/VSCodePortable/Other/Source/LauncherLicense.txt).
+*	The Visual Studio Code editor is released under [the MIT license](https://raw.githubusercontent.com/Microsoft/vscode/master/LICENSE.txt).
