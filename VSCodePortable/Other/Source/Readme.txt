@@ -21,9 +21,9 @@ is an example INI included with this package to get you started.  To use it,
 copy AppNamePortable.ini from this directory to VSCodePortable.ini next to
 VSCodePortable.exe. The options in the INI file are as follows:
 
-   AdditionalParameters=
-   DisableSplashScreen=false
-   RunLocally=false
+	AdditionalParameters=
+	DisableSplashScreen=false
+	RunLocally=false
 
 (There is no need for an INI header in this file; if you have one, though, it
 won't damage anything.)
