@@ -1,0 +1,10 @@
+title: Visual Studio Code Portable
+author: Gareth Flowers
+markdown: kramdown
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - README.md
+  - vendor/
+gems:
+  - jekyll-sitemap

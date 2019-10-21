@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="IE=edge">
+    <title>{{ site.title }} ~ {{ site.author }}</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="description" content="{{ site.github.project_tagline }}">
+    <meta name="author" content="{{ site.github.owner_name }}">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="{{ site.title }}">
+    <meta name="application-name" content="{{ site.title }}">
+    <meta name="msapplication-tooltip" content="{{ site.title }}">
+    <meta name="msapplication-navbutton-color" content="rgb(65,131,196)">
+    <meta name="msapplication-starturl" content="/">
+    <meta name="mobile-web-app-capable" content="yes">
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml">
+    <link rel="author" type="text/plain" href="/humans.txt">
+    <link rel="icon" sizes="228x228" href="/apple-touch-icon.png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="apple-touch-startup-image" href="/images/startup/1536x2008.png" media="(device-width:768px) and (orientation:portrait) and (-webkit-device-pixel-ratio:2)">
+    <link rel="apple-touch-startup-image" href="/images/startup/1496x2048.png" media="(device-width:768px) and (orientation:landscape) and (-webkit-device-pixel-ratio:2)">
+    <link rel="apple-touch-startup-image" href="/images/startup/768x1004.png" media="(device-width:768px) and (orientation:portrait) and (-webkit-device-pixel-ratio:1)">
+    <link rel="apple-touch-startup-image" href="/images/startup/748x1024.png" media="(device-width:768px) and (orientation:landscape) and (-webkit-device-pixel-ratio:1)">
+    <link rel="apple-touch-startup-image" href="/images/startup/640x1096.png" media="(device-width:320px) and (device-height:568px) and (-webkit-device-pixel-ratio:2)">
+    <link rel="apple-touch-startup-image" href="/images/startup/640x920.png" media="(device-width:320px) and (device-height:480px) and (-webkit-device-pixel-ratio:2)">
+    <link rel="apple-touch-startup-image" href="/images/startup/320x460.png" media="(device-width:320px) and (device-height:480px) and (-webkit-device-pixel-ratio:1)">
+    <!--[if lt IE 9]><script src="//oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script><![endif]-->
+  </head>
+  <body>
+
+    <header>{{ site.title }}</header>
+
+    <div id="content">
+
+      <section id="about">
+
+        <img class="logo" src="{{ site.github.url }}/logo.svg" alt="{{ site.title }} Logo">
+
+        <h1>{{ site.github.project_tagline }}</h1>
+
+        <nav id="links">
+
+          <div>
+            <a href="{{ site.github.releases_url }}/" class="button">
+              <img src="/images/download.svg" alt="Download"> Download {{ site.title }}</a>
+          </div>
+
+          <div>
+            <a href="{{ site.github.repository_url }}/" class="button">
+              <img src="/images/github.svg" alt="GitHub"> View on GitHub</a>
+          </div>
+
+        </nav>
+
+      </section>
+
+      <section>{{ content }}</section>
+
+    </div>
+
+    <footer>
+      <img src="/images/code.svg" alt="Code" class="icon code"> with
+      <img src="/images/heart.svg" alt="Love" class="icon heart"> by
+      <a href="/" class="icon author">{{ site.author }}</a>
+    </footer>
+
+  </body>
+</html>
