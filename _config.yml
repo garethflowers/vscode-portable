@@ -1,4 +1,9 @@
+author: garethflowers
 plugins:
   - jekyll-remote-theme
   - jekyll-sitemap
 remote_theme: garethflowers/garethflowers.github.io
+tagline: Gareth Flowers
+twitter:
+  username: garethflowers
+  card: summary
